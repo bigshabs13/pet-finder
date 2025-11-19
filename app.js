@@ -323,31 +323,9 @@ supabase.auth.onAuthStateChange((event, session) => {
     updateUI();
 });
 
-// Pet slider background animation
-const petImages = [
-    '/images/1.jpg',
-    '/images/2.webp',
-    '/images/3.webp',
-    '/images/4.avif',
-    '/images/5.avif',
-];
 
-let currentImageIndex = 0;
-const petSlider = document.getElementById('petSlider');
-
-function changePetImage() {
-    if (petSlider) {
-        petSlider.style.backgroundImage = `url('${petImages[currentImageIndex]}')`;
-        currentImageIndex = (currentImageIndex + 1) % petImages.length;
-    }
-}
-
-// Change pet image every 8 seconds
-if (petSlider) {
-    changePetImage();
-    setInterval(changePetImage, 8000);
-}
-
-// Initialize
-checkAuthStatus();
-initPetSlider();
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    checkAuthStatus();
+    initPetSlider();
+});

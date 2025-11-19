@@ -8,103 +8,103 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 35 100% 98%;
-    --foreground: 20 14% 12%;
+    --background: 120 20% 10%; /* Dark green background */
+    --foreground: 35 30% 95%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 20 14% 12%;
+    --card: 120 25% 15%;
+    --card-foreground: 35 30% 95%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 20 14% 12%;
+    --popover: 120 25% 15%;
+    --popover-foreground: 35 30% 95%;
 
-    --primary: 25 95% 53%;
+    --primary: 0 75% 45%; /* Deep red primary color */
     --primary-foreground: 0 0% 100%;
     
-    --primary-light: 30 100% 65%;
-    --primary-dark: 20 90% 45%;
+    --primary-light: 0 65% 55%; /* Lighter red */
+    --primary-dark: 0 85% 35%; /* Darker red */
 
-    --secondary: 174 62% 47%;
+    --secondary: 120 40% 30%; /* Dark green secondary */
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 35 30% 94%;
-    --muted-foreground: 20 6% 50%;
+    --muted: 120 25% 20%;
+    --muted-foreground: 35 15% 75%;
 
-    --accent: 174 62% 47%;
+    --accent: 0 70% 50%; /* Red accent */
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 85% 55%; /* Brighter red for destructive */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 35 20% 88%;
-    --input: 35 20% 88%;
-    --ring: 25 95% 53%;
+    --border: 120 30% 25%;
+    --input: 120 30% 25%;
+    --ring: 0 75% 45%; /* Red ring to match primary */
 
     --radius: 1rem;
     
-    --gradient-warm: linear-gradient(135deg, hsl(25 95% 53%) 0%, hsl(30 100% 65%) 100%);
-    --gradient-hero: linear-gradient(180deg, hsl(35 100% 98%) 0%, hsl(30 100% 95%) 100%);
-    --shadow-soft: 0 4px 24px -4px hsl(25 95% 53% / 0.15);
+    --gradient-warm: linear-gradient(135deg, hsl(0 75% 45%) 0%, hsl(120 40% 30%) 100%);
+    --gradient-hero: linear-gradient(180deg, hsl(120 20% 10%) 0%, hsl(120 25% 15%) 100%);
+    --shadow-soft: 0 4px 24px -4px hsl(0 75% 45% / 0.25);
 
-    --sidebar-background: 0 0% 98%;
+    --sidebar-background: 120 25% 15%;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-foreground: 35 30% 95%;
 
-    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary: 0 75% 45%; /* Red for sidebar primary */
 
-    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-primary-foreground: 0 0% 100%;
 
-    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent: 0 70% 50%; /* Red accent */
 
-    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-accent-foreground: 0 0% 100%;
 
-    --sidebar-border: 220 13% 91%;
+    --sidebar-border: 120 30% 25%;
 
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-ring: 0 75% 45%; /* Red ring */
   }
 
   .dark {
-    --background: 20 25% 8%;
+    --background: 120 25% 5%; /* Even darker green for dark mode */
     --foreground: 35 30% 95%;
 
-    --card: 20 20% 12%;
+    --card: 120 30% 8%;
     --card-foreground: 35 30% 95%;
 
-    --popover: 20 20% 12%;
+    --popover: 120 30% 8%;
     --popover-foreground: 35 30% 95%;
 
-    --primary: 25 95% 53%;
+    --primary: 0 75% 45%; /* Deep red primary color same as light mode */
     --primary-foreground: 0 0% 100%;
     
-    --primary-light: 30 100% 65%;
-    --primary-dark: 20 90% 45%;
+    --primary-light: 0 65% 55%; /* Lighter red */
+    --primary-dark: 0 85% 35%; /* Darker red */
 
-    --secondary: 174 62% 47%;
+    --secondary: 120 40% 25%; /* Dark green secondary */
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 20 15% 18%;
-    --muted-foreground: 35 10% 65%;
+    --muted: 120 25% 15%;
+    --muted-foreground: 35 20% 70%;
 
-    --accent: 174 62% 47%;
+    --accent: 0 70% 45%; /* Red accent for dark mode */
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 62.8% 50%;
+    --destructive: 0 85% 50%; /* Brighter red for destructive */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 20 15% 18%;
-    --input: 20 15% 18%;
-    --ring: 25 95% 53%;
+    --border: 120 35% 20%;
+    --input: 120 35% 20%;
+    --ring: 0 75% 45%; /* Red ring to match primary */
     
-    --gradient-warm: linear-gradient(135deg, hsl(25 95% 53%) 0%, hsl(30 100% 65%) 100%);
-    --gradient-hero: linear-gradient(180deg, hsl(20 25% 8%) 0%, hsl(20 20% 12%) 100%);
-    --shadow-soft: 0 4px 24px -4px hsl(25 95% 53% / 0.25);
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --gradient-warm: linear-gradient(135deg, hsl(0 75% 45%) 0%, hsl(120 40% 30%) 100%);
+    --gradient-hero: linear-gradient(180deg, hsl(120 25% 5%) 0%, hsl(120 30% 8%) 100%);
+    --shadow-soft: 0 4px 24px -4px hsl(0 75% 45% / 0.35);
+    --sidebar-background: 120 30% 8%;
+    --sidebar-foreground: 35 30% 95%;
+    --sidebar-primary: 0 75% 45%; /* Red for sidebar primary */
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 0 70% 45%; /* Red accent */
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 120 35% 20%;
+    --sidebar-ring: 0 75% 45%; /* Red ring */
   }
 }
 

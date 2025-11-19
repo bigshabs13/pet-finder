@@ -1,19 +1,35 @@
 import { Button } from "@/components/ui/button";
 import { ArrowDown } from "lucide-react";
 import { Link } from "react-router-dom";
-import heroPet from "@/assets/hero-pet.jpg";
+import { useState, useEffect } from "react";
+import pet1 from "@/assets/1.jpg";
+import pet2 from "@/assets/2.webp";
+import pet3 from "@/assets/3.webp";
+import pet4 from "@/assets/4.avif";
+import pet5 from "@/assets/5.avif";
+
+const petImages = [pet1, pet2, pet3, pet4, pet5];
 
 export const Hero = () => {
+  const [currentPet, setCurrentPet] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentPet((prev) => (prev + 1) % petImages.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   const scrollToForm = () => {
     document.getElementById("create-profile")?.scrollIntoView({ behavior: "smooth" });
   };
 
   return (
-    <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden bg-[image:var(--gradient-hero)]">
-      <div className="absolute inset-0 opacity-20">
+    <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden bg-gradient-to-b from-green-900 via-green-800 to-green-900">
+      <div className="absolute inset-0 opacity-60">
         <img 
-          src={heroPet} 
-          alt="Happy pet with QR code collar" 
+          src={petImages[currentPet]} 
+          alt="Happy pet" 
           className="w-full h-full object-cover"
         />
       </div>
