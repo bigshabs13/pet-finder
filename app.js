@@ -26,6 +26,10 @@ function initPetSlider() {
 const SUPABASE_URL = 'https://idvunxqfgengfnbrsqla.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_QOik2xXg32RTTgRasLNLcA_GLMaw54Y';
 
+// Supabase Client
+const SUPABASE_URL = 'https://zfwhbdejvtlvltumkrrb.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpmd2hiZGVqdnRsdmx0dW1rcnJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzE3NTI4OTgsImV4cCI6MjA0NzMyODg5OH0.pJlnM1pN0zRnR5PsKsQ9J7n2-v0K8V2d8B0qR3zY7Ls';
+
 const { createClient } = window.supabase;
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -158,6 +162,15 @@ signupForm.addEventListener('submit', async (e) => {
         signupForm.reset();
     } catch (error) {
         console.error('Signup exception:', error);
+            password
+        });
+        
+        if (error) throw error;
+        
+        alert('Account created! Please check your email to verify.');
+        signupModal.classList.remove('active');
+        signupForm.reset();
+    } catch (error) {
         alert('Signup failed: ' + error.message);
     }
 });
@@ -380,6 +393,8 @@ async function handleEmailConfirmation() {
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     handleEmailConfirmation();
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
     checkAuthStatus();
     initPetSlider();
 });
