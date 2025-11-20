@@ -135,23 +135,60 @@ signupForm.addEventListener('submit', async (e) => {
         
         if (error) {
             console.error('Signup error:', error);
-            if (error.message.includes('User already registered')) {
-                alert('This email is already registered. Please try logging in instead.');
+            // Handle different error types
+            if (error.message.includes('User already registered') || 
+                error.message.includes('already been registered') ||
+                error.message.includes('already exists')) {
+                alert(`This email (${email}) is already registered. Please try logging in instead, or check your email for a confirmation link if you haven't verified yet.`);
+            } else if (error.message.includes('Invalid email')) {
+                alert('Please enter a valid email address.');
             } else {
-                throw error;
+                alert('Signup failed: ' + error.message);
             }
             return;
         }
         
         console.log('Signup data:', data);
         
-        // Check if user needs email confirmation
-        if (data.user && !data.user.email_confirmed_at) {
-            alert(`Account created! Please check your email (${email}) for a confirmation link. Check your spam folder if you don't see it.`);
-        } else if (data.user && data.user.email_confirmed_at) {
-            alert('Account created and confirmed! You can now log in.');
+        // Supabase sometimes returns existing users without errors
+        // Check if user already exists by looking at the response
+        if (data.user && !data.session) {
+            // User exists but no session was created = existing unconfirmed user
+            alert(`This email (${email}) is already registered but not confirmed. Please check your email for a confirmation link, or try logging in.`);
+            return;
+        }
+        
+        if (data.user && data.session) {
+            // New user with immediate session = account created and confirmed
+            alert('Account created and confirmed! Welcome to Pet-Finder.');
+            currentUser = data.user;
+            updateUI();
+            signupModal.classList.remove('active');
+            signupForm.reset();
+            showDashboard();
+            return;
+        }
+        
+        if (data.user && data.user.created_at) {
+            const createdAt = new Date(data.user.created_at);
+            const now = new Date();
+            const timeDiff = now.getTime() - createdAt.getTime();
+            
+            // If user was created more than 30 seconds ago, it's likely existing
+            if (timeDiff > 30000) {
+                alert(`This email (${email}) is already registered. Please try logging in instead.`);
+                return;
+            }
+            
+            // New user created, needs email confirmation
+            if (!data.user.email_confirmed_at) {
+                alert(`Account created successfully! Please check your email (${email}) for a confirmation link. Check your spam folder if you don't see it.`);
+            } else {
+                alert('Account created and confirmed! You can now log in.');
+            }
         } else {
-            alert('Account created! You may need to confirm your email before logging in.');
+            // Fallback
+            alert('Account created! Please check your email to confirm your account.');
         }
         
         signupModal.classList.remove('active');
