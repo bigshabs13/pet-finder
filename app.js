@@ -598,17 +598,43 @@ function displayFoundPet(pet) {
     resultDiv = document.createElement('div');
     resultDiv.id = 'scanner-result';
     resultDiv.style.marginTop = '20px';
-    document.getElementById('scanner')?.appendChild(resultDiv);
+    const scannerSection = document.getElementById('scanner-section');
+    if (scannerSection) scannerSection.appendChild(resultDiv);
   }
+
+  const statusBadge = pet.status === 'lost' 
+    ? '<span style="background: #dc2626; color: white; padding: 6px 12px; border-radius: 20px; font-weight: 600;">MISSING</span>'
+    : '<span style="background: #10b981; color: white; padding: 6px 12px; border-radius: 20px; font-weight: 600;">SAFE</span>';
+
+  const missingInfo = pet.status === 'lost' 
+    ? '<div style="background: #fee2e2; border-left: 4px solid #dc2626; padding: 16px; margin: 16px 0; border-radius: 8px;"><p><strong>This pet is reported MISSING!</strong></p><p>If you see this pet, please report the sighting immediately.</p></div>'
+    : '';
 
   resultDiv.innerHTML = `
     <div style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-      <h3 style="color: #0f8f3d;">Pet Found!</h3>
-      <h4>${pet.name}</h4>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="margin: 0; color: #0f8f3d;">${pet.name}</h3>
+        ${statusBadge}
+      </div>
+      
       <p><strong>Type:</strong> ${pet.species}</p>
       <p><strong>Breed:</strong> ${pet.breed || 'Not specified'}</p>
-      <p><strong>Email:</strong> ${pet.users?.email || 'Not available'}</p>
-      <button class="btn btn-primary" onclick="contactOwner('${pet.users?.email}', '${pet.name}')">Send Email</button>
+      <p><strong>Color:</strong> ${pet.color || 'Not specified'}</p>
+      ${pet.description ? `<p><strong>Details:</strong> ${pet.description}</p>` : ''}
+      ${pet.microchip_id ? `<p><strong>Microchip ID:</strong> ${pet.microchip_id}</p>` : ''}
+      
+      ${missingInfo}
+      
+      <div style="border-top: 1px solid #e5e7eb; padding-top: 16px; margin-top: 16px;">
+        <p><strong>Owner Contact:</strong></p>
+        <p>Phone: ${pet.owner_phone}</p>
+        <p>Email: ${pet.users?.email || 'Not available'}</p>
+      </div>
+      
+      <div style="display: flex; gap: 12px; margin-top: 16px;">
+        <button class="btn btn-primary" onclick="contactOwner('${pet.users?.email}', '${pet.name}')"><i class="fas fa-envelope"></i> Send Email</button>
+        <button class="btn btn-secondary" onclick="callOwner('${pet.owner_phone}')"><i class="fas fa-phone"></i> Call Owner</button>
+      </div>
     </div>
   `;
 }
@@ -993,22 +1019,23 @@ function callOwner(phone) {
 function initDashboard() {
   document.querySelectorAll('[data-section]').forEach(btn => {
     btn.addEventListener('click', (e) => {
-      showSection(e.target.dataset.section);
+      const sectionId = e.currentTarget.dataset.section;
+      showSection(sectionId);
+      
+      if (sectionId === 'feed-section') loadFeed();
+      if (sectionId === 'my-pets-section') renderMyPets();
+      if (sectionId === 'map-section') setTimeout(() => initMap(), 300);
     });
   });
 
-  showSection('overview-section');
-  initQuickActions();
+  showSection('feed-section');
   initAddPetForm();
   initReportMissing();
 
   if (document.getElementById('scanner-section')) initScanner();
-  if (document.getElementById('chat-section')) initChatbot();
-
-  setTimeout(() => initMap(), 500);
-
+  
   loadUserPets();
-  loadActiveMissingPets();
+  loadFeed();
 }
 
 function initQuickActions() {
@@ -1019,6 +1046,139 @@ function initQuickActions() {
       else if (action === 'scanner') showSection('scanner-section');
     });
   });
+}
+
+// ========================================
+// FEED PAGE
+// ========================================
+
+async function loadFeed() {
+  try {
+    const { data: missingPets, error } = await supabase
+      .from('missing_pets')
+      .select('*, pets(id, name, species, color, description, owner_phone)')
+      .eq('status', 'active')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const feedContainer = document.getElementById('feedContainer');
+    if (!feedContainer) return;
+
+    if (missingPets.length === 0) {
+      feedContainer.innerHTML = '<div style="text-align: center; padding: 40px; color: #6b7280;"><p>No missing pets reported in your area</p></div>';
+      return;
+    }
+
+    feedContainer.innerHTML = missingPets.map(mp => {
+      const daysLost = Math.floor((new Date() - new Date(mp.created_at)) / (1000 * 60 * 60 * 24));
+      return `
+        <div class="feed-card">
+          <div class="feed-card-header">
+            <h3>${mp.pets.name}</h3>
+            <span class="status-badge">MISSING</span>
+          </div>
+          <div class="feed-card-body">
+            <p><strong>Type:</strong> ${mp.pets.species}</p>
+            <p><strong>Color:</strong> ${mp.pets.color || 'Not specified'}</p>
+            <p><strong>Last Seen:</strong> ${mp.lost_location}</p>
+            <p><strong>Date:</strong> ${mp.lost_date} (${daysLost} days ago)</p>
+            ${mp.reward_amount ? `<p><strong style="color: #dc2626;">Reward:</strong> ${mp.reward_amount} LBP</p>` : ''}
+            ${mp.additional_description ? `<p><strong>Details:</strong> ${mp.additional_description}</p>` : ''}
+          </div>
+          <div class="feed-card-footer">
+            <button class="btn btn-primary" onclick="reportSighting('${mp.pet_id}')"><i class="fas fa-info-circle"></i> Report Sighting</button>
+            <button class="btn btn-secondary" onclick="callOwner('${mp.pets.owner_phone}')"><i class="fas fa-phone"></i> Call Owner</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (error) {
+    console.error('Error loading feed:', error);
+    showMessage('Failed to load feed');
+  }
+}
+
+// ========================================
+// MY PETS PAGE
+// ========================================
+
+function renderMyPets() {
+  const petsList = document.getElementById('petsList');
+  if (!petsList) return;
+
+  if (state.userPets.length === 0) {
+    petsList.innerHTML = '<div style="text-align: center; padding: 40px; color: #6b7280;"><p>No pets registered. Add your first pet to get started.</p></div>';
+    return;
+  }
+
+  petsList.innerHTML = state.userPets.map(pet => `
+    <div class="pet-card-my-pets">
+      <div class="pet-card-header">
+        <h3>${pet.name}</h3>
+        <span class="pet-status-label ${pet.status}">${pet.status === 'lost' ? 'MISSING' : 'SAFE'}</span>
+      </div>
+      <div class="pet-card-body">
+        <p><strong>Type:</strong> ${pet.species}</p>
+        <p><strong>Breed:</strong> ${pet.breed || 'Not specified'}</p>
+        <p><strong>Color:</strong> ${pet.color || 'Not specified'}</p>
+        ${pet.description ? `<p><strong>Details:</strong> ${pet.description}</p>` : ''}
+      </div>
+      <div class="pet-card-actions">
+        <button class="btn btn-${pet.status === 'lost' ? 'success' : 'warning'}" onclick="toggleMissingStatus('${pet.id}', '${pet.status}')"><i class="fas fa-${pet.status === 'lost' ? 'check' : 'exclamation'}"></i> Mark ${pet.status === 'lost' ? 'Found' : 'Missing'}</button>
+        <button class="btn btn-secondary" onclick="generateQR('${pet.id}')"><i class="fas fa-qrcode"></i> QR Code</button>
+        <button class="btn btn-danger" onclick="deletePetConfirm('${pet.id}')"><i class="fas fa-trash"></i> Delete</button>
+      </div>
+      <div id="qr-${pet.id}" class="qr-display"></div>
+    </div>
+  `).join('');
+}
+
+async function toggleMissingStatus(petId, currentStatus) {
+  const newStatus = currentStatus === 'lost' ? 'safe' : 'lost';
+  
+  try {
+    if (newStatus === 'lost') {
+      const lostDate = new Date().toISOString().split('T')[0];
+      const lostLocation = prompt('Where was your pet last seen?');
+      if (!lostLocation) return;
+
+      const { error } = await supabase.from('missing_pets').insert([{
+        pet_id: petId,
+        owner_id: state.currentUser.id,
+        lost_date: lostDate,
+        lost_location: lostLocation,
+        status: 'active'
+      }]);
+
+      if (error) throw error;
+      showMessage('Pet marked as missing!');
+    } else {
+      const { data: missingPet } = await supabase
+        .from('missing_pets')
+        .select('id')
+        .eq('pet_id', petId)
+        .eq('status', 'active')
+        .single();
+
+      if (missingPet) {
+        await supabase.from('missing_pets').update({ status: 'found' }).eq('id', missingPet.id);
+      }
+      showMessage('Pet marked as found!');
+    }
+
+    await supabase.from('pets').update({ status: newStatus }).eq('id', petId);
+    loadUserPets();
+    renderMyPets();
+  } catch (error) {
+    console.error('Error toggling status:', error);
+    alert('Error: ' + error.message);
+  }
+}
+
+function deletePetConfirm(petId) {
+  if (!confirm('Delete this pet permanently? This cannot be undone.')) return;
+  deletePet(petId);
 }
 
 // ========================================
