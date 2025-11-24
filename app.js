@@ -598,17 +598,43 @@ function displayFoundPet(pet) {
     resultDiv = document.createElement('div');
     resultDiv.id = 'scanner-result';
     resultDiv.style.marginTop = '20px';
-    document.getElementById('scanner')?.appendChild(resultDiv);
+    const scannerSection = document.getElementById('scanner-section');
+    if (scannerSection) scannerSection.appendChild(resultDiv);
   }
+
+  const statusBadge = pet.status === 'lost' 
+    ? '<span style="background: #dc2626; color: white; padding: 6px 12px; border-radius: 20px; font-weight: 600;">MISSING</span>'
+    : '<span style="background: #10b981; color: white; padding: 6px 12px; border-radius: 20px; font-weight: 600;">SAFE</span>';
+
+  const missingInfo = pet.status === 'lost' 
+    ? '<div style="background: #fee2e2; border-left: 4px solid #dc2626; padding: 16px; margin: 16px 0; border-radius: 8px;"><p><strong>This pet is reported MISSING!</strong></p><p>If you see this pet, please report the sighting immediately.</p></div>'
+    : '';
 
   resultDiv.innerHTML = `
     <div style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-      <h3 style="color: #0f8f3d;">Pet Found!</h3>
-      <h4>${pet.name}</h4>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="margin: 0; color: #0f8f3d;">${pet.name}</h3>
+        ${statusBadge}
+      </div>
+      
       <p><strong>Type:</strong> ${pet.species}</p>
       <p><strong>Breed:</strong> ${pet.breed || 'Not specified'}</p>
-      <p><strong>Email:</strong> ${pet.users?.email || 'Not available'}</p>
-      <button class="btn btn-primary" onclick="contactOwner('${pet.users?.email}', '${pet.name}')">Send Email</button>
+      <p><strong>Color:</strong> ${pet.color || 'Not specified'}</p>
+      ${pet.description ? `<p><strong>Details:</strong> ${pet.description}</p>` : ''}
+      ${pet.microchip_id ? `<p><strong>Microchip ID:</strong> ${pet.microchip_id}</p>` : ''}
+      
+      ${missingInfo}
+      
+      <div style="border-top: 1px solid #e5e7eb; padding-top: 16px; margin-top: 16px;">
+        <p><strong>Owner Contact:</strong></p>
+        <p>Phone: ${pet.owner_phone}</p>
+        <p>Email: ${pet.users?.email || 'Not available'}</p>
+      </div>
+      
+      <div style="display: flex; gap: 12px; margin-top: 16px;">
+        <button class="btn btn-primary" onclick="contactOwner('${pet.users?.email}', '${pet.name}')"><i class="fas fa-envelope"></i> Send Email</button>
+        <button class="btn btn-secondary" onclick="callOwner('${pet.owner_phone}')"><i class="fas fa-phone"></i> Call Owner</button>
+      </div>
     </div>
   `;
 }
