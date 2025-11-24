@@ -7,6 +7,7 @@
     <meta name="theme-color" content="#0f8f3d">
     <title>PetFinder - Keep Your Pets Safe with QR Codes</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%230f8f3d'/><text x='50' y='60' font-size='60' text-anchor='middle' fill='white' font-weight='bold'>P</text></svg>">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
             margin: 0;
@@ -1200,7 +1201,7 @@
         }
 
         .missing-pet-card::before {
-            content: '🚨';
+            content: '';
             position: absolute;
             top: 8px;
             right: 8px;
@@ -1321,7 +1322,7 @@
         .sighting-card strong {
             color: #10b981;
         }
-    </style>
+
         /* Scanner Styles */
         .scanner-container {
             display: grid;
@@ -1717,43 +1718,84 @@
                 <!-- Dashboard Navigation -->
                 <nav class="dashboard-nav">
                     <div class="nav-brand">
-                        <h2>🐾 Dashboard</h2>
+                        <h2><i class="fas fa-heart"></i> Dashboard</h2>
                     </div>
                     <div class="nav-links">
-                        <button class="nav-link active" data-section="overview-section">📊 Overview</button>
-                        <button class="nav-link" data-section="add-pet-section">➕ Add Pet</button>
-                        <button class="nav-link" data-section="scanner-section">📱 Scan Pet</button>
-                        <button class="nav-link" data-section="map-section">🗺️ Map</button>
-                        <button class="nav-link" data-section="chat-section">💬 ChatBot</button>
+                        <button class="nav-link active" data-section="feed-section"><i class="fas fa-stream"></i> Feed</button>
+                        <button class="nav-link" data-section="my-pets-section"><i class="fas fa-paw"></i> My Pets</button>
+                        <button class="nav-link" data-section="add-pet-section"><i class="fas fa-plus"></i> Add Pet</button>
+                        <button class="nav-link" data-section="map-section"><i class="fas fa-map"></i> Map</button>
+                        <button class="nav-link" data-section="scanner-section"><i class="fas fa-qrcode"></i> Scan</button>
                     </div>
                 </nav>
 
                 <!-- Dashboard Content -->
                 <main class="dashboard-content">
-                    <!-- Overview Section -->
-                    <div id="overview-section" class="dashboard-section active">
+                    <!-- Feed Section -->
+                    <div id="feed-section" class="dashboard-section active">
                         <div class="section-header">
-                            <h1>Welcome Back! 👋</h1>
+                            <h1><i class="fas fa-stream"></i> Community Feed</h1>
+                            <p>Missing pets reported near you</p>
+                        </div>
+                        
+                        <div class="feed-filters">
+                            <input type="text" id="feedSearch" placeholder="Search by pet name or location..." class="search-input">
+                            <select id="feedFilter" class="filter-select">
+                                <option value="">All Pets</option>
+                                <option value="dog">Dogs</option>
+                                <option value="cat">Cats</option>
+                                <option value="bird">Birds</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        
+                        <div id="feedContainer" class="feed-container">
+                            <div class="loading">
+                                <div class="spinner"></div>
+                                Loading community reports...
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- My Pets Section -->
+                    <div id="my-pets-section" class="dashboard-section">
+                        <div class="section-header">
+                            <h1><i class="fas fa-paw"></i> My Pets</h1>
+                            <p>Manage your registered pets</p>
+                        </div>
+                        
+                        <div id="petsList" class="pets-container">
+                            <div class="loading">
+                                <div class="spinner"></div>
+                                Loading your pets...
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Overview Section (hidden) -->
+                    <div id="overview-section" class="dashboard-section">
+                        <div class="section-header">
+                            <h1>Welcome Back! </h1>
                             <p>Manage your pets and keep them safe with QR codes</p>
                         </div>
                         
                         <div class="stats-grid">
                             <div class="stat-card">
-                                <div class="stat-icon">🐕</div>
+                                <div class="stat-icon"></div>
                                 <div class="stat-info">
                                     <h3 id="totalPets">0</h3>
                                     <p>Total Pets</p>
                                 </div>
                             </div>
                             <div class="stat-card">
-                                <div class="stat-icon">📱</div>
+                                <div class="stat-icon"></div>
                                 <div class="stat-info">
                                     <h3 id="totalQRs">0</h3>
                                     <p>QR Codes Generated</p>
                                 </div>
                             </div>
                             <div class="stat-card">
-                                <div class="stat-icon">🔍</div>
+                                <div class="stat-icon"></div>
                                 <div class="stat-info">
                                     <h3>0</h3>
                                     <p>Scans This Month</p>
@@ -1765,15 +1807,15 @@
                             <h3>Quick Actions</h3>
                             <div class="action-buttons">
                                 <button class="action-btn" data-action="add-pet">
-                                    <span class="action-icon">➕</span>
+                                    <span class="action-icon"></span>
                                     <span>Add New Pet</span>
                                 </button>
                                 <button class="action-btn" data-action="scanner">
-                                    <span class="action-icon">📱</span>
+                                    <span class="action-icon"></span>
                                     <span>Scan QR Code</span>
                                 </button>
                                 <button class="action-btn" data-action="emergency">
-                                    <span class="action-icon">🚨</span>
+                                    <span class="action-icon"></span>
                                     <span>Report Lost Pet</span>
                                 </button>
                             </div>
@@ -1796,7 +1838,7 @@
                     <!-- Add Pet Section -->
                     <div id="add-pet-section" class="dashboard-section">
                         <div class="section-header">
-                            <h1>➕ Add New Pet</h1>
+                            <h1> Add New Pet</h1>
                             <p>Register your pet and generate a safety QR code</p>
                         </div>
                         
@@ -1831,15 +1873,15 @@
                                                 <label for="petSpecies">Pet Type *</label>
                                                 <select id="petSpecies" name="petSpecies" required>
                                                     <option value="">Select pet type</option>
-                                                    <option value="dog">🐕 Dog</option>
-                                                    <option value="cat">🐱 Cat</option>
-                                                    <option value="bird">🦜 Bird</option>
-                                                    <option value="rabbit">🐰 Rabbit</option>
-                                                    <option value="hamster">🐹 Hamster</option>
-                                                    <option value="guinea pig">🐽 Guinea Pig</option>
-                                                    <option value="fish">🐟 Fish</option>
-                                                    <option value="reptile">🦎 Reptile</option>
-                                                    <option value="other">🐾 Other</option>
+                                                    <option value="dog"> Dog</option>
+                                                    <option value="cat"> Cat</option>
+                                                    <option value="bird"> Bird</option>
+                                                    <option value="rabbit"> Rabbit</option>
+                                                    <option value="hamster"> Hamster</option>
+                                                    <option value="guinea pig"> Guinea Pig</option>
+                                                    <option value="fish"> Fish</option>
+                                                    <option value="reptile"> Reptile</option>
+                                                    <option value="other"> Other</option>
                                                 </select>
                                             </div>
                                         </div>
@@ -1854,9 +1896,9 @@
                                                 <label for="petGender">Gender</label>
                                                 <select id="petGender" name="petGender">
                                                     <option value="">Select gender</option>
-                                                    <option value="male">♂️ Male</option>
-                                                    <option value="female">♀️ Female</option>
-                                                    <option value="unknown">❓ Unknown</option>
+                                                    <option value="male"> Male</option>
+                                                    <option value="female"> Female</option>
+                                                    <option value="unknown"> Unknown</option>
                                                 </select>
                                             </div>
                                         </div>
@@ -1935,7 +1977,7 @@
                                         <div class="nav-spacer"></div>
                                         <button type="button" id="nextStep" class="btn btn-primary">Next →</button>
                                         <button type="submit" id="submitForm" class="btn btn-success" style="display: none;">
-                                            <span id="submitText">🐾 Register Pet & Generate QR</span>
+                                            <span id="submitText"> Register Pet & Generate QR</span>
                                             <span id="submitSpinner" class="spinner" style="display: none;"></span>
                                         </button>
                                     </div>
@@ -1986,10 +2028,10 @@
                                                 🖨️ Print QR Code
                                             </button>
                                             <button onclick="showSection('overview-section')" class="btn btn-primary">
-                                                📊 View Dashboard
+                                                 View Dashboard
                                             </button>
                                             <button onclick="resetAddPetForm(); showSection('add-pet-section')" class="btn btn-outline">
-                                                ➕ Add Another Pet
+                                                 Add Another Pet
                                             </button>
                                         </div>
                                     </div>
@@ -2001,7 +2043,7 @@
                     <!-- Scanner Section -->
                     <div id="scanner-section" class="dashboard-section">
                         <div class="section-header">
-                            <h1>📱 QR Code Scanner</h1>
+                            <h1> QR Code Scanner</h1>
                             <p>Scan a pet's QR code to view their information</p>
                         </div>
                         
@@ -2017,7 +2059,7 @@
                             <div class="scanner-instructions">
                                 <h3>How to scan:</h3>
                                 <ul>
-                                    <li>📱 Click "Start Scanner" to open camera</li>
+                                    <li> Click "Start Scanner" to open camera</li>
                                     <li>📄 Point camera at QR code on pet collar</li>
                                     <li>📞 View pet info and contact owner</li>
                                 </ul>
@@ -2036,7 +2078,7 @@
                     <!-- Report Missing Pet Section -->
                     <div id="report-missing-section" class="dashboard-section">
                         <div class="section-header">
-                            <h1>🚨 Report Missing Pet</h1>
+                            <h1> Report Missing Pet</h1>
                             <p>Mark your pet as lost and help others find them</p>
                         </div>
                         
@@ -2089,12 +2131,12 @@
                                 </div>
                                 
                                 <div class="missing-alert" style="background: #fef3c7; border: 1px solid #fcd34d; padding: 16px; border-radius: 8px; margin: 20px 0; color: #92400e;">
-                                    <p style="margin: 0;"><strong>📱 Important:</strong> Make sure your pet has the QR code on their collar. When someone finds your pet and scans the QR code, they'll see that the pet is marked as MISSING and can report the sighting!</p>
+                                    <p style="margin: 0;"><strong> Important:</strong> Make sure your pet has the QR code on their collar. When someone finds your pet and scans the QR code, they'll see that the pet is marked as MISSING and can report the sighting!</p>
                                 </div>
                                 
                                 <div class="form-actions">
                                     <button type="submit" class="btn btn-danger">
-                                        <span id="reportText">🚨 Mark Pet as Missing</span>
+                                        <span id="reportText"> Mark Pet as Missing</span>
                                         <span id="reportSpinner" class="spinner" style="display: none;"></span>
                                     </button>
                                     <button type="button" class="btn btn-secondary" onclick="showSection('overview-section')">Cancel</button>
@@ -2114,7 +2156,7 @@
                     <!-- Map Section -->
                     <div id="map-section" class="dashboard-section">
                         <div class="section-header">
-                            <h1>🗺️ Missing Pets Map</h1>
+                            <h1> Missing Pets Map</h1>
                             <p>See all missing pets in your area</p>
                         </div>
                         
@@ -2174,7 +2216,7 @@
                     <!-- Chat Section -->
                     <div id="chat-section" class="dashboard-section">
                         <div class="section-header">
-                            <h1>💬 Pet Care ChatBot</h1>
+                            <h1> Pet Care ChatBot</h1>
                             <p>Get instant answers about pet care and safety</p>
                         </div>
                         
@@ -2188,7 +2230,7 @@
                                             <li>🏥 Pet health and symptoms</li>
                                             <li>🍖 Feeding and nutrition</li>
                                             <li>🎾 Training and behavior</li>
-                                            <li>🚨 Emergency situations</li>
+                                            <li> Emergency situations</li>
                                         </ul>
                                         <p>How can I help you today?</p>
                                     </div>
@@ -2203,7 +2245,7 @@
                                 
                                 <div class="quick-questions">
                                     <p>Quick questions:</p>
-                                    <button class="quick-btn" onclick="askQuestion('My pet is missing, what should I do?')">🚨 Pet is missing</button>
+                                    <button class="quick-btn" onclick="askQuestion('My pet is missing, what should I do?')"> Pet is missing</button>
                                     <button class="quick-btn" onclick="askQuestion('How often should I feed my dog?')">🍖 Feeding schedule</button>
                                     <button class="quick-btn" onclick="askQuestion('First aid for pets')">🏥 First aid tips</button>
                                 </div>
