@@ -79,9 +79,21 @@ function setupEventListeners() {
   const closeLoginBtn = document.getElementById('closeLoginBtn');
   const closeSignupBtn = document.getElementById('closeSignupBtn');
 
-  signupBtn?.addEventListener('click', () => dom.signupModal?.classList.add('active'));
+  signupBtn?.addEventListener('click', () => {
+    if (state.currentUser) {
+      alert('You are already logged in! Logout first to create a new account.');
+      return;
+    }
+    dom.signupModal?.classList.add('active');
+  });
   learnMoreBtn?.addEventListener('click', showLearnMoreInfo);
-  document.getElementById('loginBtn')?.addEventListener('click', () => dom.loginModal?.classList.add('active'));
+  document.getElementById('loginBtn')?.addEventListener('click', () => {
+    if (state.currentUser) {
+      alert('You are already logged in! Logout first to login to another account.');
+      return;
+    }
+    dom.loginModal?.classList.add('active');
+  });
   closeLoginBtn?.addEventListener('click', () => dom.loginModal?.classList.remove('active'));
   closeSignupBtn?.addEventListener('click', () => dom.signupModal?.classList.remove('active'));
   dom.logoutBtn?.addEventListener('click', logout);
