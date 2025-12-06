@@ -1545,6 +1545,72 @@
             color: #0f8f3d;
         }
 
+        .prompt-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 12px;
+            margin-top: 14px;
+            align-items: start;
+        }
+
+        .prompt-card {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 12px;
+        }
+
+        .prompt-card label {
+            display: block;
+            font-size: 12px;
+            font-weight: 700;
+            color: #0f8f3d;
+            margin-bottom: 6px;
+        }
+
+        .prompt-card input {
+            width: 100%;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            padding: 8px;
+            font-size: 13px;
+            font-family: inherit;
+            background: white;
+        }
+
+        .prompt-card textarea {
+            width: 100%;
+            min-height: 72px;
+            resize: vertical;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            padding: 8px;
+            font-size: 13px;
+            font-family: inherit;
+            background: white;
+        }
+
+        .prompt-card textarea:focus {
+            outline: none;
+            border-color: #0f8f3d;
+            box-shadow: 0 0 0 2px rgba(15, 143, 61, 0.08);
+        }
+
+        .prompt-hint {
+            margin-top: 6px;
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .lora-status {
+            font-size: 12px;
+            color: #0f8f3d;
+            background: #ecfdf3;
+            border: 1px solid #bbf7d0;
+            border-radius: 10px;
+            padding: 10px;
+        }
+
         /* Feed Page Styles */
         .feed-container {
             display: grid;
@@ -2439,7 +2505,7 @@
                             <p>Get instant answers about pet care and safety</p>
                         </div>
                         
-                        <div class="chatbot-container">
+                            <div class="chatbot-container">
                             <div class="chat-messages" id="chatMessages">
                                 <div class="bot-message">
                                     <div class="message-avatar">🤖</div>
@@ -2458,15 +2524,36 @@
                             
                             <div class="chat-input-container">
                                 <div class="chat-input">
-                                    <input type="text" id="chatInput" placeholder="Ask about pet care, health, training..." onkeypress="handleChatEnter(event)">
-                                    <button class="btn btn-primary" onclick="sendMessage()">Send</button>
+                                    <input type="text" id="chatInput" placeholder="Ask about pet care, health, training...">
+                                    <button class="btn btn-primary" id="chatSend">Send</button>
                                 </div>
                                 
                                 <div class="quick-questions">
                                     <p>Quick questions:</p>
-                                    <button class="quick-btn" onclick="askQuestion('My pet is missing, what should I do?')"> Pet is missing</button>
-                                    <button class="quick-btn" onclick="askQuestion('How often should I feed my dog?')">🍖 Feeding schedule</button>
-                                    <button class="quick-btn" onclick="askQuestion('First aid for pets')">🏥 First aid tips</button>
+                                    <button class="quick-btn" data-question="My pet is missing, what should I do?"> Pet is missing</button>
+                                    <button class="quick-btn" data-question="How often should I feed my dog?">🍖 Feeding schedule</button>
+                                    <button class="quick-btn" data-question="First aid for pets">🏥 First aid tips</button>
+                                </div>
+
+                                <div class="prompt-controls">
+                                    <div class="prompt-card">
+                                        <label for="positivePrompt">Positive prompting</label>
+                                        <textarea id="positivePrompt" placeholder="Helpful, calm, action-focused tone. Emphasize safety, clarity, and empathy."></textarea>
+                                        <div class="prompt-hint">What you want the assistant to emphasize every reply.</div>
+                                    </div>
+                                    <div class="prompt-card">
+                                        <label for="negativePrompt">Negative prompting</label>
+                                        <textarea id="negativePrompt" placeholder="Avoid panic, medical diagnosis, personal data, or blaming."></textarea>
+                                        <div class="prompt-hint">What the assistant should actively avoid.</div>
+                                    </div>
+                                    <div class="prompt-card">
+                                        <label for="chatModelName">Ollama model</label>
+                                        <input type="text" id="chatModelName" placeholder="qwen2.5:3b or your LoRA variant">
+                                        <div class="prompt-hint">Runs locally via Ollama (127.0.0.1:11434). Set this to your LoRA-fine-tuned model name.</div>
+                                    </div>
+                                    <div class="lora-status" id="loraStatus">
+                                        Training adapter not loaded yet.
+                                    </div>
                                 </div>
                             </div>
                         </div>

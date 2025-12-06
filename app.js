@@ -70,6 +70,7 @@ function initialize() {
   checkAuthStatus();
   initPetSlider();
   setupEventListeners();
+  initChatbot();
   handlePetLink();
 }
 
@@ -668,63 +669,449 @@ function contactOwner(email, petName) {
 // CHATBOT
 // ========================================
 
-function initChatbot() {
-  document.getElementById('send-message')?.addEventListener('click', sendMessage);
-  document.getElementById('chat-input')?.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') sendMessage();
+const chatModelConfig = {
+  defaultPositivePrompt: 'Keep it calm, concise, and action-focused. Empathize and encourage contacting a vet when urgent.',
+  defaultNegativePrompt: 'Avoid medical diagnoses, panic, personal data, or blaming the owner. No false guarantees.',
+  useOllama: true,
+  ollamaEndpoint: 'http://127.0.0.1:11434/api/generate',
+  ollamaModel: 'qwen2.5:3b',
+  temperature: 0.35,
+  numCtx: 2048,
+  repeatPenalty: 1.05
+};
+
+const syntheticChatDataset = [
+  {
+    user: 'My dog ran away from home',
+    response: 'Start a 500m search, tell neighbors, print QR flyers, and update the pet status to missing.',
+    tags: ['missing', 'community'],
+    keywords: ['dog', 'ran', 'away', 'missing']
+  },
+  {
+    user: 'Cat not eating',
+    response: 'Check water intake, offer plain boiled chicken, and call a vet if more than 24h.',
+    tags: ['health', 'nutrition'],
+    keywords: ['cat', 'not eating', 'food']
+  },
+  {
+    user: 'How often should I feed my puppy?',
+    response: 'Small frequent meals 3-4x daily, consistent schedule, no sudden food changes.',
+    tags: ['nutrition'],
+    keywords: ['feed', 'puppy', 'often']
+  },
+  {
+    user: 'Create a missing poster',
+    response: 'Use a clear photo, add QR code, phone number, last location, and reward if any.',
+    tags: ['missing', 'qr'],
+    keywords: ['poster', 'missing', 'qr']
+  },
+  {
+    user: 'Dog limping after walk',
+    response: 'Rest 24h, check paws for debris, avoid stairs, vet visit if swelling or pain persists.',
+    tags: ['health'],
+    keywords: ['limping', 'walk', 'pain']
+  },
+  {
+    user: 'House training tips',
+    response: 'Take the dog out after meals, reward outside potty, keep a consistent routine, avoid punishment.',
+    tags: ['behavior'],
+    keywords: ['training', 'house', 'potty']
+  },
+  {
+    user: 'What should I pack for emergency go bag',
+    response: 'Water, 3-day food, leash, copy of vet records, QR tag, first-aid kit, and a recent photo.',
+    tags: ['safety'],
+    keywords: ['emergency', 'bag', 'kit']
+  },
+  {
+    user: 'My cat scratched my sofa',
+    response: 'Add scratching posts near the sofa, use deterrent spray, reward cat when using posts.',
+    tags: ['behavior'],
+    keywords: ['scratched', 'sofa', 'scratching']
+  },
+  {
+    user: 'Lost pet search checklist',
+    response: 'Search nearby hiding spots, notify shelters, share QR on social media, update microchip registry.',
+    tags: ['missing', 'community'],
+    keywords: ['search', 'lost', 'checklist']
+  },
+  {
+    user: 'Puppy ate chocolate',
+    response: 'Call a vet immediately, note the amount and time, and do not wait for symptoms.',
+    tags: ['health', 'emergency'],
+    keywords: ['chocolate', 'ate', 'puppy']
+  }
+];
+
+const topicLibrary = {
+  missing: {
+    title: 'Missing pet recovery plan',
+    keywords: ['missing', 'lost', 'run away', 'ran away', 'escape', 'escaped', 'poster', 'flyer', 'qr'],
+    steps: [
+      'Search your street and immediate 500m radius with a leash and treats.',
+      'Mark the pet as missing in the app so QR scans show your contact.',
+      'Print or share the QR code on social platforms and local groups.',
+      'Call nearby shelters and vets; give them the QR link.',
+      'Leave a familiar scent (bed/blanket) near your door or gate.'
+    ],
+    caution: 'If your pet is in danger or near traffic, ask a neighbor to help while you call local shelters.',
+    tone: 'Stay calm and move quickly. Make it easy for anyone to contact you.'
+  },
+  nutrition: {
+    title: 'Feeding and nutrition',
+    keywords: ['feed', 'diet', 'food', 'eat', 'kibble', 'treats', 'schedule'],
+    steps: [
+      'Keep a predictable feeding schedule; puppies/kittens need 3-4 smaller meals.',
+      'Use measured portions to avoid overfeeding; adjust slowly when changing food.',
+      'Provide clean water at all times and log appetite changes.',
+      'Introduce new foods gradually over 3-5 days to avoid stomach upset.'
+    ],
+    caution: 'If appetite drops for 24 hours or vomiting appears, call your vet.',
+    tone: 'Balance routine with gradual changes to protect their stomach.'
+  },
+  health: {
+    title: 'Health and first aid',
+    keywords: ['sick', 'vomit', 'limp', 'hurt', 'injury', 'emergency', 'bleeding', 'fever', 'ill'],
+    steps: [
+      'Keep your pet warm and limit movement while you assess symptoms.',
+      'Check gums, paws, and body for obvious injuries or swelling.',
+      'Provide fresh water; avoid food until vomiting/diarrhea stops.',
+      'Call your vet for guidance if pain, swelling, or lethargy persists.'
+    ],
+    caution: 'Seizures, heavy bleeding, or toxin ingestion (chocolate, xylitol) need immediate vet care.',
+    tone: 'Stabilize first, then get professional help fast.'
+  },
+  behavior: {
+    title: 'Training and behavior',
+    keywords: ['train', 'behavior', 'barking', 'anxiety', 'scratch', 'biting', 'chew'],
+    steps: [
+      'Reward the behavior you want within 1-2 seconds of it happening.',
+      'Redirect unwanted actions to an allowed option (toy, scratch post).',
+      'Keep sessions short (5-10 minutes) and end on a success.',
+      'Stay consistent; everyone in the home should use the same cues.'
+    ],
+    caution: 'Avoid punishment—it increases fear. Seek a trainer if aggression appears.',
+    tone: 'Repetition, timing, and kindness build habits faster.'
+  },
+  qr: {
+    title: 'QR code and scanner help',
+    keywords: ['qr', 'code', 'scan', 'scanner', 'tag', 'badge'],
+    steps: [
+      'Open your pet card and generate the QR code; save it to your phone and print for tags.',
+      'Test the QR in good lighting; wipe smudges and keep it flat for easier scans.',
+      'Share the QR link with neighbors and shelters so they can scan it quickly.',
+      'If a scan fails, share the pet link directly or reprint at higher contrast.'
+    ],
+    caution: 'Never post personal addresses publicly—use the QR contact info instead.',
+    tone: 'Make QR access easy so finders can contact you within seconds.'
+  },
+  safety: {
+    title: 'Emergency and preparedness',
+    keywords: ['emergency', 'first aid', 'go bag', 'kit', 'storm', 'earthquake', 'fire'],
+    steps: [
+      'Pack a go-bag with water, 3-day food, leash, QR tag, vet records, and a recent photo.',
+      'Know your closest 24/7 vet clinic and route.',
+      'Keep a basic pet first-aid kit (gauze, tape, antiseptic, tweezers).',
+      'Practice quick leash/harnessing so exits are smooth during emergencies.'
+    ],
+    caution: 'In disasters, your safety comes first—evacuate early and keep pets leashed/crated.',
+    tone: 'Preparedness reduces panic when seconds matter.'
+  },
+  general: {
+    title: 'Pet care guidance',
+    keywords: [],
+    steps: [
+      'Share your pet\'s QR code so helpers can contact you instantly.',
+      'Keep ID tags, microchip info, and photos up to date.',
+      'Schedule routine vet checks and keep vaccination records handy.',
+      'Use positive reinforcement for training and safety gear for outings.'
+    ],
+    caution: 'When in doubt about health, call a vet rather than guessing.',
+    tone: 'Simple routines and fast communication keep pets safer.'
+  }
+};
+
+let loraAdapter = null;
+
+function trainSyntheticLora(dataset) {
+  const topicBoosts = {};
+  dataset.forEach(sample => {
+    (sample.tags || []).forEach(tag => {
+      topicBoosts[tag] = (topicBoosts[tag] || 0) + 1 + (sample.keywords?.length || 0) * 0.05;
+    });
   });
-  document.querySelectorAll('.quick-btn').forEach(btn => {
-    btn.addEventListener('click', () => sendMessage(btn.textContent));
+
+  const max = Math.max(...Object.values(topicBoosts), 1);
+  Object.keys(topicBoosts).forEach(topic => {
+    topicBoosts[topic] = Number(((topicBoosts[topic] / max) + 0.35).toFixed(2));
   });
-  addBotMessage("Hello! I'm your Pet-Finder assistant. How can I help?");
+
+  return {
+    topicBoosts,
+    datasetSize: dataset.length,
+    trainedAt: new Date().toISOString()
+  };
 }
 
-function sendMessage(predefined) {
-  const input = document.getElementById('chat-input');
-  const msg = predefined || input.value.trim();
+function initChatbot() {
+  const chatSendBtn = document.getElementById('chatSend');
+  const chatInput = document.getElementById('chatInput');
+  const positiveField = document.getElementById('positivePrompt');
+  const negativeField = document.getElementById('negativePrompt');
+  const modelField = document.getElementById('chatModelName');
+
+  if (positiveField && !positiveField.value) positiveField.value = chatModelConfig.defaultPositivePrompt;
+  if (negativeField && !negativeField.value) negativeField.value = chatModelConfig.defaultNegativePrompt;
+  if (modelField && !modelField.value) modelField.value = chatModelConfig.ollamaModel;
+
+  loraAdapter = trainSyntheticLora(syntheticChatDataset);
+  updateLoraStatus();
+
+  chatSendBtn?.addEventListener('click', () => sendMessage());
+  chatInput?.addEventListener('keydown', handleChatEnter);
+  document.querySelectorAll('.quick-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const preset = btn.dataset.question || btn.textContent.trim();
+      sendMessage(preset);
+    });
+  });
+
+  addBotMessage("Chatbot will try local qwen2.5 via Ollama first, then fall back to the built-in synthetic LoRA playbook. Ask anything about pet care, safety, or missing pets.");
+}
+
+function handleChatEnter(event) {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    sendMessage();
+  }
+}
+
+function askQuestion(question) {
+  sendMessage(question);
+}
+
+async function sendMessage(predefined) {
+  const input = document.getElementById('chatInput');
+  const msg = predefined || input?.value.trim();
   if (!msg) return;
 
   addUserMessage(msg);
-  if (!predefined) input.value = '';
+  if (!predefined && input) input.value = '';
 
-  setTimeout(() => generateBotResponse(msg), 800);
+  const positivePrompt = document.getElementById('positivePrompt')?.value || chatModelConfig.defaultPositivePrompt;
+  const negativePrompt = document.getElementById('negativePrompt')?.value || chatModelConfig.defaultNegativePrompt;
+  const modelName = document.getElementById('chatModelName')?.value?.trim() || chatModelConfig.ollamaModel;
+  const placeholder = addBotMessage('Thinking...');
+
+  try {
+    const reply = await generateBotResponse(msg, positivePrompt, negativePrompt, modelName);
+    setBotMessageContent(placeholder, reply);
+  } catch (error) {
+    console.error('Chat reply failed, using synthetic fallback:', error);
+    const fallback = generateSyntheticResponse(msg, positivePrompt, negativePrompt);
+    setBotMessageContent(placeholder, `${fallback}<p class="prompt-hint">Local model error: ${escapeHtml(error.message || 'unknown')}</p>`);
+  }
 }
 
 function addUserMessage(msg) {
-  const container = document.getElementById('chat-messages');
+  const container = document.getElementById('chatMessages');
   if (!container) return;
   const div = document.createElement('div');
   div.className = 'user-message';
-  div.innerHTML = `<div class="message-avatar">User</div><div class="message-content"><p>${msg}</p></div>`;
+  const safeText = document.createElement('div');
+  safeText.textContent = msg;
+  div.innerHTML = `<div class="message-avatar">😊</div>`;
+  div.appendChild(createMessageContent(safeText.textContent, true));
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
 }
 
 function addBotMessage(msg) {
-  const container = document.getElementById('chat-messages');
-  if (!container) return;
+  const container = document.getElementById('chatMessages');
+  if (!container) return null;
   const div = document.createElement('div');
   div.className = 'bot-message';
-  div.innerHTML = `<div class="message-avatar">Bot</div><div class="message-content">${msg}</div>`;
+  div.innerHTML = `<div class="message-avatar">🤖</div>`;
+  const content = document.createElement('div');
+  content.className = 'message-content';
+  content.innerHTML = msg;
+  div.appendChild(content);
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
+  return div;
 }
 
-function generateBotResponse(userMsg) {
-  const lower = userMsg.toLowerCase();
-  let response = 'I can help with adding pets, QR codes, reporting lost pets, or scanning.';
+function setBotMessageContent(botMessageEl, html) {
+  if (!botMessageEl) {
+    addBotMessage(html);
+    return;
+  }
+  const content = botMessageEl.querySelector('.message-content');
+  if (!content) return;
+  content.innerHTML = html;
+  botMessageEl.scrollIntoView({ block: 'end', behavior: 'smooth' });
+}
 
-  if (lower.includes('add') || lower.includes('register')) {
-    response = '<p>To add a pet:</p><ul><li>Go to Add Pet section</li><li>Fill pet info</li><li>Generate QR code</li></ul>';
-  } else if (lower.includes('lost') || lower.includes('missing')) {
-    response = '<p>If pet is lost:</p><ul><li>Share QR on social media</li><li>Post flyers</li><li>Contact shelters</li></ul>';
-  } else if (lower.includes('qr') || lower.includes('code')) {
-    response = '<p>Each pet gets a unique QR code. Attach to collar and print on flyers.</p>';
-  } else if (lower.includes('scanner')) {
-    response = '<p>Use scanner to scan QR codes and view pet info.</p>';
+function escapeHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function createMessageContent(text, isUser) {
+  const content = document.createElement('div');
+  content.className = 'message-content';
+  content.textContent = text;
+  if (isUser) content.style.whiteSpace = 'pre-wrap';
+  return content;
+}
+
+async function generateBotResponse(userMsg, positivePrompt, negativePrompt, modelName) {
+  const selectedModel = modelName || chatModelConfig.ollamaModel;
+  if (chatModelConfig.useOllama && selectedModel) {
+    const ollamaReply = await generateWithOllama(selectedModel, userMsg, positivePrompt, negativePrompt);
+    if (ollamaReply) {
+      const sanitizedNegative = sanitizeNegativePrompt(negativePrompt);
+      const positiveLine = positivePrompt || chatModelConfig.defaultPositivePrompt;
+      return `
+        <p><strong>${escapeHtml(selectedModel)}</strong> (local via Ollama)</p>
+        <p>${escapeHtml(ollamaReply).replace(/\n/g, '<br>')}</p>
+        <p class="prompt-hint">Style: ${escapeHtml(positiveLine)} · Avoid: ${escapeHtml(sanitizedNegative)}</p>
+      `;
+    }
   }
 
-  addBotMessage(response);
+  return generateSyntheticResponse(userMsg, positivePrompt, negativePrompt);
+}
+
+async function generateWithOllama(modelName, userMsg, positivePrompt, negativePrompt) {
+  if (!chatModelConfig.ollamaEndpoint) throw new Error('Ollama endpoint missing.');
+  const payload = {
+    model: modelName,
+    prompt: buildOllamaPrompt(userMsg, positivePrompt, negativePrompt),
+    stream: false,
+    options: {
+      temperature: chatModelConfig.temperature,
+      num_ctx: chatModelConfig.numCtx,
+      repeat_penalty: chatModelConfig.repeatPenalty
+    }
+  };
+
+  const res = await fetch(chatModelConfig.ollamaEndpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    throw new Error(`Ollama responded ${res.status} ${res.statusText}`);
+  }
+
+  const data = await res.json();
+  if (data?.error) throw new Error(data.error);
+  return data?.response?.trim();
+}
+
+function buildOllamaPrompt(userMsg, positivePrompt, negativePrompt) {
+  const positiveLine = positivePrompt || chatModelConfig.defaultPositivePrompt;
+  const sanitizedNegative = sanitizeNegativePrompt(negativePrompt);
+  return [
+    'You are PetBot, a concise, calm assistant for pet care, safety, and missing pet recovery.',
+    `Keep answers short, actionable, and local-friendly.`,
+    `Style focus: ${positiveLine}`,
+    `Avoid: ${sanitizedNegative}`,
+    '',
+    `User: ${userMsg}`,
+    'Assistant:'
+  ].join('\n');
+}
+
+function generateSyntheticResponse(userMsg, positivePrompt, negativePrompt) {
+  const topic = detectTopic(userMsg);
+  const template = topicLibrary[topic] || topicLibrary.general;
+  const adapterBoost = loraAdapter?.topicBoosts?.[topic] || 0.35;
+  const fewShot = getFewShotExample(userMsg, topic);
+
+  const steps = template.steps.slice(0, Math.min(template.steps.length, 3 + Math.round(adapterBoost)));
+  if (fewShot && !steps.includes(fewShot.response)) steps.push(fewShot.response);
+
+  const sanitizedNegative = sanitizeNegativePrompt(negativePrompt);
+  const positiveLine = positivePrompt || chatModelConfig.defaultPositivePrompt;
+
+  return `
+    <p><strong>${template.title}</strong> — tuned with a free synthetic model.</p>
+    <p>${template.tone}</p>
+    <ul>${steps.map(step => `<li>${step}</li>`).join('')}</ul>
+    <p style="color:#047857;"><strong>Style:</strong> ${positiveLine}</p>
+    <p style="color:#b45309;"><strong>Avoid:</strong> ${sanitizedNegative}</p>
+    <p class="prompt-hint">Adapter boost ${adapterBoost.toFixed(2)} · LoRA on ${loraAdapter?.datasetSize || 0} synthetic samples · Topic: ${topic}</p>
+    <p class="prompt-hint">Last trained: ${formatTimestamp(loraAdapter?.trainedAt)}</p>
+  `;
+}
+
+function detectTopic(msg) {
+  const text = msg.toLowerCase();
+  const scores = {};
+
+  Object.keys(topicLibrary).forEach(topic => {
+    const cfg = topicLibrary[topic];
+    scores[topic] = (loraAdapter?.topicBoosts?.[topic] || 0);
+    cfg.keywords.forEach(keyword => {
+      if (text.includes(keyword)) scores[topic] += 1;
+    });
+  });
+
+  const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+  return sorted[0]?.[0] || 'general';
+}
+
+function getFewShotExample(msg, topic) {
+  const tokens = msg.toLowerCase().split(/\W+/).filter(Boolean);
+  let best = null;
+  let bestScore = 0;
+
+  syntheticChatDataset.forEach(sample => {
+    const tags = sample.tags || [];
+    if (topic && !tags.includes(topic)) return;
+    const overlap = sample.keywords?.reduce((score, kw) => score + (tokens.includes(kw.replace(/\s+/g, '')) ? 1 : textContains(tokens, kw)), 0) || 0;
+    if (overlap > bestScore) {
+      best = sample;
+      bestScore = overlap;
+    }
+  });
+
+  return best || syntheticChatDataset[0];
+}
+
+function textContains(tokens, phrase) {
+  const cleaned = phrase.toLowerCase().split(/\W+/).filter(Boolean);
+  return cleaned.every(part => tokens.includes(part)) ? 1 : 0;
+}
+
+function sanitizeNegativePrompt(negativePrompt) {
+  const fallback = chatModelConfig.defaultNegativePrompt;
+  const sanitized = (negativePrompt || fallback).replace(/[^a-z0-9 ,.-]/gi, '');
+  return sanitized || fallback;
+}
+
+function updateLoraStatus() {
+  const statusEl = document.getElementById('loraStatus');
+  if (!statusEl || !loraAdapter) return;
+  const topics = Object.entries(loraAdapter.topicBoosts || {})
+    .sort((a, b) => b[1] - a[1])
+    .map(([topic, weight]) => `${topic}: ${weight.toFixed(2)}`)
+    .join(' · ');
+  const modelName = document.getElementById('chatModelName')?.value?.trim() || chatModelConfig.ollamaModel;
+  statusEl.textContent = `Primary model: ${modelName || 'qwen2.5:3b'} via Ollama (127.0.0.1). Fallback: synthetic LoRA on ${loraAdapter.datasetSize} samples • Topic boosts ${topics}`;
+}
+
+function formatTimestamp(ts) {
+  if (!ts) return 'unknown';
+  const date = new Date(ts);
+  return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
 }
 
 // ========================================
