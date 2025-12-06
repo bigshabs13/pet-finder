@@ -250,6 +250,11 @@ function showSection(sectionId) {
 
   document.querySelectorAll('.dashboard-section').forEach(section => section.classList.remove('active'));
   document.getElementById(sectionId)?.classList.add('active');
+
+  if (sectionId === 'chat-section') {
+    document.getElementById('chat-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('chatInput')?.focus();
+  }
 }
 
 // ========================================

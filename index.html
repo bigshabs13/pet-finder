@@ -638,6 +638,23 @@
             width: 100%;
         }
 
+        .nav-icon {
+            display: inline-flex;
+            width: 18px;
+            height: 18px;
+            margin-right: 10px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nav-icon svg {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2;
+        }
+
         .nav-link:hover {
             background: #f3f4f6;
             color: #374151;
@@ -1996,11 +2013,30 @@
                         <h2>Dashboard</h2>
                     </div>
                     <div class="nav-links">
-                        <button class="nav-link active" data-section="feed-section"><i class="fas fa-stream"></i> Feed</button>
-                        <button class="nav-link" data-section="my-pets-section"><i class="fas fa-paw"></i> My Pets</button>
-                        <button class="nav-link" data-section="add-pet-section"><i class="fas fa-plus"></i> Add Pet</button>
-                        <button class="nav-link" data-section="map-section"><i class="fas fa-map"></i> Map</button>
-                        <button class="nav-link" data-section="scanner-section"><i class="fas fa-qrcode"></i> Scan</button>
+                        <button class="nav-link active" data-section="feed-section">
+                            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 4h16M4 12h10M4 20h7"/></svg></span>
+                            Feed
+                        </button>
+                        <button class="nav-link" data-section="my-pets-section">
+                            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12a2 2 0 1 1 4 0M15 12a2 2 0 1 1 4 0M4 17c0-2 1.5-3 3.5-3S11 15 11 17v1H4zm9 1v-1c0-2 1.5-3 3.5-3S21 15 21 17v1zM9 6a2 2 0 1 1 4 0"/></svg></span>
+                            My Pets
+                        </button>
+                        <button class="nav-link" data-section="add-pet-section">
+                            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
+                            Add Pet
+                        </button>
+                        <button class="nav-link" data-section="map-section">
+                            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 18 3 20V6l6-2 6 2 6-2v14l-6 2-6-2Z"/><path d="m9 6 6 2v14"/></svg></span>
+                            Map
+                        </button>
+                        <button class="nav-link" data-section="scanner-section">
+                            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M5 12h14"/></svg></span>
+                            Scan
+                        </button>
+                        <button class="nav-link" data-section="chat-section">
+                            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 10h10M7 14h6"/><path d="M21 11.5a8.5 8.5 0 1 0-3.36 6.7L21 21Z"/></svg></span>
+                            Chatbot
+                        </button>
                     </div>
                 </nav>
 
@@ -2335,7 +2371,9 @@
                         <div class="scanner-container">
                             <div class="scanner-box">
                                 <div class="camera-placeholder">
-                                    <div class="camera-icon"><i class="fas fa-camera"></i></div>
+                                    <div class="camera-icon">
+                                        <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h3l2-3h6l2 3h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="4"/></svg></span>
+                                    </div>
                                     <p>Click to start camera</p>
                                     <button class="btn btn-primary" onclick="startScanner()">Start Scanner</button>
                                 </div>
@@ -2355,6 +2393,19 @@
                                 <div class="input-group">
                                     <input type="text" id="manualPetId" placeholder="Enter Pet ID (if you can't scan)">
                                     <button class="btn btn-secondary" onclick="lookupPet()">Lookup</button>
+                                </div>
+                            </div>
+
+                            <div class="info-card" style="margin-top: 16px; display: grid; gap: 10px; padding: 14px; border-radius: 12px; border: 1px solid #e5e7eb; background: #f9fafb;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 10h10M7 14h6"/><path d="M21 11.5a8.5 8.5 0 1 0-3.36 6.7L21 21Z"/></svg></span>
+                                    <div>
+                                        <strong>Need a hand?</strong>
+                                        <p style="margin: 4px 0 0; color: #4b5563; font-size: 13px;">Open the Chatbot for quick scanning help or missing-pet scripts.</p>
+                                    </div>
+                                </div>
+                                <div>
+                                    <button class="btn btn-secondary" onclick="showSection('chat-section')">Go to Chatbot</button>
                                 </div>
                             </div>
                         </div>
