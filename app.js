@@ -881,7 +881,7 @@ function initChatbot() {
     });
   });
 
-  addBotMessage("Chatbot will try local qwen2.5 via Ollama first, then fall back to the built-in synthetic LoRA playbook. Ask anything about pet care, safety, or missing pets.");
+  addBotMessage("Pet-only assistant: I try local qwen2.5 via Ollama first, then fall back to the synthetic LoRA playbook. Ask about pet care, training, safety, or missing pets. For urgent health issues, call a vet.");
 }
 
 function handleChatEnter(event) {
@@ -975,16 +975,25 @@ function createMessageContent(text, isUser) {
 }
 
 async function generateBotResponse(userMsg, positivePrompt, negativePrompt, modelName) {
+  if (!isPetRelated(userMsg)) {
+    return `
+      <p><strong>PetBot scope notice</strong></p>
+      <p>I only answer pet-related questions about care, safety, missing pets, or training. Please ask about a pet and I'll help.</p>
+    `;
+  }
+
   const selectedModel = modelName || chatModelConfig.ollamaModel;
   if (chatModelConfig.useOllama && selectedModel) {
     const ollamaReply = await generateWithOllama(selectedModel, userMsg, positivePrompt, negativePrompt);
     if (ollamaReply) {
       const sanitizedNegative = sanitizeNegativePrompt(negativePrompt);
       const positiveLine = positivePrompt || chatModelConfig.defaultPositivePrompt;
+      const disclaimer = needsMedicalDisclaimer(userMsg) ? renderMedicalDisclaimer() : '';
       return `
         <p><strong>${escapeHtml(selectedModel)}</strong> (local via Ollama)</p>
         <p>${escapeHtml(ollamaReply).replace(/\n/g, '<br>')}</p>
         <p class="prompt-hint">Style: ${escapeHtml(positiveLine)} · Avoid: ${escapeHtml(sanitizedNegative)}</p>
+        ${disclaimer}
       `;
     }
   }
@@ -1025,7 +1034,9 @@ function buildOllamaPrompt(userMsg, positivePrompt, negativePrompt) {
   const sanitizedNegative = sanitizeNegativePrompt(negativePrompt);
   return [
     'You are PetBot, a concise, calm assistant for pet care, safety, and missing pet recovery.',
-    `Keep answers short, actionable, and local-friendly.`,
+    'Only answer questions that are clearly about pets or pet care. If the question is not about pets, politely say you only handle pet topics.',
+    'Keep answers short, actionable, and local-friendly.',
+    'For health/medical concerns, avoid diagnoses and include a brief safety disclaimer to contact a licensed veterinarian or emergency clinic for urgent issues.',
     `Style focus: ${positiveLine}`,
     `Avoid: ${sanitizedNegative}`,
     '',
@@ -1045,6 +1056,7 @@ function generateSyntheticResponse(userMsg, positivePrompt, negativePrompt) {
 
   const sanitizedNegative = sanitizeNegativePrompt(negativePrompt);
   const positiveLine = positivePrompt || chatModelConfig.defaultPositivePrompt;
+  const disclaimer = needsMedicalDisclaimer(userMsg, topic) ? renderMedicalDisclaimer() : '';
 
   return `
     <p><strong>${template.title}</strong> — tuned with a free synthetic model.</p>
@@ -1054,6 +1066,7 @@ function generateSyntheticResponse(userMsg, positivePrompt, negativePrompt) {
     <p style="color:#b45309;"><strong>Avoid:</strong> ${sanitizedNegative}</p>
     <p class="prompt-hint">Adapter boost ${adapterBoost.toFixed(2)} · LoRA on ${loraAdapter?.datasetSize || 0} synthetic samples · Topic: ${topic}</p>
     <p class="prompt-hint">Last trained: ${formatTimestamp(loraAdapter?.trainedAt)}</p>
+    ${disclaimer}
   `;
 }
 
@@ -1071,6 +1084,22 @@ function detectTopic(msg) {
 
   const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
   return sorted[0]?.[0] || 'general';
+}
+
+function isPetRelated(msg) {
+  const text = (msg || '').toLowerCase();
+  const keywords = ['pet', 'dog', 'cat', 'kitten', 'puppy', 'bird', 'parrot', 'rabbit', 'hamster', 'animal', 'leash', 'collar', 'qr', 'vet', 'groom', 'flea', 'tick'];
+  return keywords.some(kw => text.includes(kw));
+}
+
+function needsMedicalDisclaimer(msg, topic) {
+  const text = (msg || '').toLowerCase();
+  const medicalKeywords = ['vet', 'doctor', 'emergency', 'bleed', 'blood', 'injury', 'hurt', 'pain', 'sick', 'ill', 'fever', 'vomit', 'poison', 'toxin', 'seizure', 'limp'];
+  return topic === 'health' || topic === 'safety' || medicalKeywords.some(kw => text.includes(kw));
+}
+
+function renderMedicalDisclaimer() {
+  return `<p class="prompt-hint" style="color:#b45309;">Not a veterinarian. For urgent or serious issues, contact a licensed vet or emergency clinic immediately.</p>`;
 }
 
 function getFewShotExample(msg, topic) {
