@@ -1196,9 +1196,20 @@ async function handleReportMissing(e) {
     if (coords) {
       latitude = coords.latitude;
       longitude = coords.longitude;
+    } else {
+      const guess = guessCoordinatesFromLocation(lostLocation);
+      if (guess) {
+        latitude = guess.lat;
+        longitude = guess.lng;
+      }
     }
   } catch (e) {
     console.log('GPS unavailable');
+  }
+
+  if ((!latitude || !longitude) && CONFIG.DEFAULT_LAT && CONFIG.DEFAULT_LNG) {
+    latitude = CONFIG.DEFAULT_LAT;
+    longitude = CONFIG.DEFAULT_LNG;
   }
 
   try {
@@ -1222,6 +1233,7 @@ async function handleReportMissing(e) {
     showMessage('Pet marked as missing! Shared with community.');
     document.getElementById('reportMissingForm').reset();
     loadActiveMissingPets();
+    loadMissingPetsOnMap();
     setTimeout(() => showSection('map-section'), 1500);
   } catch (error) {
     console.error('Error:', error);
@@ -1387,6 +1399,25 @@ async function loadMissingPetsOnMap() {
   } catch (error) {
     console.error('Map error:', error);
   }
+}
+
+function guessCoordinatesFromLocation(text) {
+  if (!text) return null;
+  const t = text.toLowerCase();
+  const hints = [
+    { key: 'beirut', lat: 33.8938, lng: 35.5018 },
+    { key: 'hamra', lat: 33.8944, lng: 35.4807 },
+    { key: 'tripoli', lat: 34.4331, lng: 35.8442 },
+    { key: 'tyre', lat: 33.2737, lng: 35.1939 },
+    { key: 'sidon', lat: 33.5570, lng: 35.3715 },
+    { key: 'saida', lat: 33.5570, lng: 35.3715 },
+    { key: 'baalbek', lat: 34.0058, lng: 36.2181 },
+    { key: 'nabatieh', lat: 33.3775, lng: 35.4839 },
+    { key: 'jounieh', lat: 33.9806, lng: 35.6153 },
+    { key: 'zahleh', lat: 33.8469, lng: 35.9020 }
+  ];
+  const match = hints.find(h => t.includes(h.key));
+  return match || null;
 }
 
 function displayMissingPetsList(missingPets) {
@@ -1582,12 +1613,7 @@ async function loadFeed() {
     const feedContainer = document.getElementById('feedContainer');
     if (!feedContainer) return;
 
-    if (missingPets.length === 0) {
-      feedContainer.innerHTML = '<div style="text-align: center; padding: 40px; color: #6b7280;"><p>No missing pets reported in your area</p></div>';
-      return;
-    }
-
-    feedContainer.innerHTML = missingPets.map(mp => {
+    const missingCards = missingPets.map(mp => {
       const daysLost = Math.floor((new Date() - new Date(mp.created_at)) / (1000 * 60 * 60 * 24));
       return `
         <div class="feed-card">
@@ -1611,10 +1637,60 @@ async function loadFeed() {
         </div>
       `;
     }).join('');
+
+    const resources = renderFeedResources();
+
+    if (missingPets.length === 0) {
+      feedContainer.innerHTML = `
+        <div style="text-align: center; padding: 24px; color: #6b7280;">
+          <p>No missing pets reported in your area.</p>
+          <p style="margin-top: 6px;">In the meantime, check these quick-read guides to stay prepared.</p>
+        </div>
+        ${resources}
+      `;
+      return;
+    }
+
+    feedContainer.innerHTML = missingCards + resources;
   } catch (error) {
     console.error('Error loading feed:', error);
     showMessage('Failed to load feed');
   }
+}
+
+function renderFeedResources() {
+  const guides = [
+    {
+      title: 'Print-ready QR flyer template',
+      summary: 'Grab a photo, paste your pet link, and pin to cafes, vets, and building entrances.',
+      tag: 'Missing pet'
+    },
+    {
+      title: '90-second lost pet checklist',
+      summary: 'Knock nearby doors, leave a scent item, call shelters, and push your QR link to neighbors.',
+      tag: 'Action plan'
+    },
+    {
+      title: 'Everyday pet safety basics',
+      summary: 'Microchip + QR tag, visible collar, recent photos, and a go-bag with meds and records.',
+      tag: 'Safety'
+    }
+  ];
+
+  return guides.map(guide => `
+    <div class="feed-card">
+      <div class="feed-card-header">
+        <h3>${guide.title}</h3>
+        <span class="status-badge" style="background:#2563eb;">${guide.tag}</span>
+      </div>
+      <div class="feed-card-body">
+        <p>${guide.summary}</p>
+      </div>
+      <div class="feed-card-footer">
+        <button class="btn btn-primary" onclick="showSection('chat-section')"><i class="fas fa-comment-dots"></i> Ask chatbot for a custom script</button>
+      </div>
+    </div>
+  `).join('');
 }
 
 // ========================================
