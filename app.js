@@ -685,69 +685,6 @@ const chatModelConfig = {
   repeatPenalty: 1.05
 };
 
-const syntheticChatDataset = [
-  {
-    user: 'My dog ran away from home',
-    response: 'Start a 500m search, tell neighbors, print QR flyers, and update the pet status to missing.',
-    tags: ['missing', 'community'],
-    keywords: ['dog', 'ran', 'away', 'missing']
-  },
-  {
-    user: 'Cat not eating',
-    response: 'Check water intake, offer plain boiled chicken, and call a vet if more than 24h.',
-    tags: ['health', 'nutrition'],
-    keywords: ['cat', 'not eating', 'food']
-  },
-  {
-    user: 'How often should I feed my puppy?',
-    response: 'Small frequent meals 3-4x daily, consistent schedule, no sudden food changes.',
-    tags: ['nutrition'],
-    keywords: ['feed', 'puppy', 'often']
-  },
-  {
-    user: 'Create a missing poster',
-    response: 'Use a clear photo, add QR code, phone number, last location, and reward if any.',
-    tags: ['missing', 'qr'],
-    keywords: ['poster', 'missing', 'qr']
-  },
-  {
-    user: 'Dog limping after walk',
-    response: 'Rest 24h, check paws for debris, avoid stairs, vet visit if swelling or pain persists.',
-    tags: ['health'],
-    keywords: ['limping', 'walk', 'pain']
-  },
-  {
-    user: 'House training tips',
-    response: 'Take the dog out after meals, reward outside potty, keep a consistent routine, avoid punishment.',
-    tags: ['behavior'],
-    keywords: ['training', 'house', 'potty']
-  },
-  {
-    user: 'What should I pack for emergency go bag',
-    response: 'Water, 3-day food, leash, copy of vet records, QR tag, first-aid kit, and a recent photo.',
-    tags: ['safety'],
-    keywords: ['emergency', 'bag', 'kit']
-  },
-  {
-    user: 'My cat scratched my sofa',
-    response: 'Add scratching posts near the sofa, use deterrent spray, reward cat when using posts.',
-    tags: ['behavior'],
-    keywords: ['scratched', 'sofa', 'scratching']
-  },
-  {
-    user: 'Lost pet search checklist',
-    response: 'Search nearby hiding spots, notify shelters, share QR on social media, update microchip registry.',
-    tags: ['missing', 'community'],
-    keywords: ['search', 'lost', 'checklist']
-  },
-  {
-    user: 'Puppy ate chocolate',
-    response: 'Call a vet immediately, note the amount and time, and do not wait for symptoms.',
-    tags: ['health', 'emergency'],
-    keywords: ['chocolate', 'ate', 'puppy']
-  }
-];
-
 const topicLibrary = {
   missing: {
     title: 'Missing pet recovery plan',
@@ -836,28 +773,6 @@ const topicLibrary = {
   }
 };
 
-let loraAdapter = null;
-
-function trainSyntheticLora(dataset) {
-  const topicBoosts = {};
-  dataset.forEach(sample => {
-    (sample.tags || []).forEach(tag => {
-      topicBoosts[tag] = (topicBoosts[tag] || 0) + 1 + (sample.keywords?.length || 0) * 0.05;
-    });
-  });
-
-  const max = Math.max(...Object.values(topicBoosts), 1);
-  Object.keys(topicBoosts).forEach(topic => {
-    topicBoosts[topic] = Number(((topicBoosts[topic] / max) + 0.35).toFixed(2));
-  });
-
-  return {
-    topicBoosts,
-    datasetSize: dataset.length,
-    trainedAt: new Date().toISOString()
-  };
-}
-
 function initChatbot() {
   const chatSendBtn = document.getElementById('chatSend');
   const chatInput = document.getElementById('chatInput');
@@ -869,9 +784,6 @@ function initChatbot() {
   if (negativeField && !negativeField.value) negativeField.value = chatModelConfig.defaultNegativePrompt;
   if (modelField && !modelField.value) modelField.value = chatModelConfig.ollamaModel;
 
-  loraAdapter = trainSyntheticLora(syntheticChatDataset);
-  updateLoraStatus();
-
   chatSendBtn?.addEventListener('click', () => sendMessage());
   chatInput?.addEventListener('keydown', handleChatEnter);
   document.querySelectorAll('.quick-btn').forEach(btn => {
@@ -881,7 +793,10 @@ function initChatbot() {
     });
   });
 
-  addBotMessage("Pet-only assistant: I try local qwen2.5 via Ollama first, then fall back to the synthetic LoRA playbook. Ask about pet care, training, safety, or missing pets. For urgent health issues, call a vet.");
+  modelField?.addEventListener('change', updateModelStatus);
+  updateModelStatus();
+
+  addBotMessage("Pet-only assistant: I use your local Ollama model (default qwen2.5:3b). Ask about pet care, training, safety, or missing pets. For urgent health issues, call a vet.");
 }
 
 function handleChatEnter(event) {
@@ -912,9 +827,11 @@ async function sendMessage(predefined) {
     const reply = await generateBotResponse(msg, positivePrompt, negativePrompt, modelName);
     setBotMessageContent(placeholder, reply);
   } catch (error) {
-    console.error('Chat reply failed, using synthetic fallback:', error);
-    const fallback = generateSyntheticResponse(msg, positivePrompt, negativePrompt);
-    setBotMessageContent(placeholder, `${fallback}<p class="prompt-hint">Local model error: ${escapeHtml(error.message || 'unknown')}</p>`);
+    console.error('Chat reply failed:', error);
+    setBotMessageContent(
+      placeholder,
+      `<p><strong>Local model unavailable</strong></p><p class="prompt-hint">${escapeHtml(error.message || 'Unknown error')}. Make sure Ollama is running and the model name exists.</p>`
+    );
   }
 }
 
@@ -982,30 +899,28 @@ async function generateBotResponse(userMsg, positivePrompt, negativePrompt, mode
     `;
   }
 
+  const topic = detectTopic(userMsg);
   const selectedModel = modelName || chatModelConfig.ollamaModel;
-  if (chatModelConfig.useOllama && selectedModel) {
-    const ollamaReply = await generateWithOllama(selectedModel, userMsg, positivePrompt, negativePrompt);
-    if (ollamaReply) {
-      const sanitizedNegative = sanitizeNegativePrompt(negativePrompt);
-      const positiveLine = positivePrompt || chatModelConfig.defaultPositivePrompt;
-      const disclaimer = needsMedicalDisclaimer(userMsg) ? renderMedicalDisclaimer() : '';
-      return `
-        <p><strong>${escapeHtml(selectedModel)}</strong> (local via Ollama)</p>
-        <p>${escapeHtml(ollamaReply).replace(/\n/g, '<br>')}</p>
-        <p class="prompt-hint">Style: ${escapeHtml(positiveLine)} · Avoid: ${escapeHtml(sanitizedNegative)}</p>
-        ${disclaimer}
-      `;
-    }
-  }
+  if (!selectedModel) throw new Error('No model configured.');
 
-  return generateSyntheticResponse(userMsg, positivePrompt, negativePrompt);
+  const ollamaReply = await generateWithOllama(selectedModel, userMsg, positivePrompt, negativePrompt, topic);
+  const sanitizedNegative = sanitizeNegativePrompt(negativePrompt);
+  const positiveLine = positivePrompt || chatModelConfig.defaultPositivePrompt;
+  const disclaimer = needsMedicalDisclaimer(userMsg, topic) ? renderMedicalDisclaimer() : '';
+
+  return `
+    <p><strong>${escapeHtml(selectedModel)}</strong> (local via Ollama)</p>
+    <p>${escapeHtml(ollamaReply).replace(/\n/g, '<br>')}</p>
+    <p class="prompt-hint">Style: ${escapeHtml(positiveLine)} · Avoid: ${escapeHtml(sanitizedNegative)}</p>
+    ${disclaimer}
+  `;
 }
 
-async function generateWithOllama(modelName, userMsg, positivePrompt, negativePrompt) {
+async function generateWithOllama(modelName, userMsg, positivePrompt, negativePrompt, topic) {
   if (!chatModelConfig.ollamaEndpoint) throw new Error('Ollama endpoint missing.');
   const payload = {
     model: modelName,
-    prompt: buildOllamaPrompt(userMsg, positivePrompt, negativePrompt),
+    prompt: buildOllamaPrompt(userMsg, positivePrompt, negativePrompt, topic),
     stream: false,
     options: {
       temperature: chatModelConfig.temperature,
@@ -1029,11 +944,13 @@ async function generateWithOllama(modelName, userMsg, positivePrompt, negativePr
   return data?.response?.trim();
 }
 
-function buildOllamaPrompt(userMsg, positivePrompt, negativePrompt) {
+function buildOllamaPrompt(userMsg, positivePrompt, negativePrompt, topic) {
   const positiveLine = positivePrompt || chatModelConfig.defaultPositivePrompt;
   const sanitizedNegative = sanitizeNegativePrompt(negativePrompt);
+  const topicInfo = topicLibrary[topic] || topicLibrary.general;
   return [
     'You are PetBot, a concise, calm assistant for pet care, safety, and missing pet recovery.',
+    `Topic focus: ${topicInfo.title}. Keywords: ${topicInfo.keywords.slice(0, 5).join(', ') || 'general pet care'}.`,
     'Only answer questions that are clearly about pets or pet care. If the question is not about pets, politely say you only handle pet topics.',
     'Keep answers short, actionable, and local-friendly.',
     'For health/medical concerns, avoid diagnoses and include a brief safety disclaimer to contact a licensed veterinarian or emergency clinic for urgent issues.',
@@ -1045,38 +962,13 @@ function buildOllamaPrompt(userMsg, positivePrompt, negativePrompt) {
   ].join('\n');
 }
 
-function generateSyntheticResponse(userMsg, positivePrompt, negativePrompt) {
-  const topic = detectTopic(userMsg);
-  const template = topicLibrary[topic] || topicLibrary.general;
-  const adapterBoost = loraAdapter?.topicBoosts?.[topic] || 0.35;
-  const fewShot = getFewShotExample(userMsg, topic);
-
-  const steps = template.steps.slice(0, Math.min(template.steps.length, 3 + Math.round(adapterBoost)));
-  if (fewShot && !steps.includes(fewShot.response)) steps.push(fewShot.response);
-
-  const sanitizedNegative = sanitizeNegativePrompt(negativePrompt);
-  const positiveLine = positivePrompt || chatModelConfig.defaultPositivePrompt;
-  const disclaimer = needsMedicalDisclaimer(userMsg, topic) ? renderMedicalDisclaimer() : '';
-
-  return `
-    <p><strong>${template.title}</strong> — tuned with a free synthetic model.</p>
-    <p>${template.tone}</p>
-    <ul>${steps.map(step => `<li>${step}</li>`).join('')}</ul>
-    <p style="color:#047857;"><strong>Style:</strong> ${positiveLine}</p>
-    <p style="color:#b45309;"><strong>Avoid:</strong> ${sanitizedNegative}</p>
-    <p class="prompt-hint">Adapter boost ${adapterBoost.toFixed(2)} · LoRA on ${loraAdapter?.datasetSize || 0} synthetic samples · Topic: ${topic}</p>
-    <p class="prompt-hint">Last trained: ${formatTimestamp(loraAdapter?.trainedAt)}</p>
-    ${disclaimer}
-  `;
-}
-
 function detectTopic(msg) {
   const text = msg.toLowerCase();
   const scores = {};
 
   Object.keys(topicLibrary).forEach(topic => {
     const cfg = topicLibrary[topic];
-    scores[topic] = (loraAdapter?.topicBoosts?.[topic] || 0);
+    scores[topic] = 0;
     cfg.keywords.forEach(keyword => {
       if (text.includes(keyword)) scores[topic] += 1;
     });
@@ -1102,50 +994,17 @@ function renderMedicalDisclaimer() {
   return `<p class="prompt-hint" style="color:#b45309;">Not a veterinarian. For urgent or serious issues, contact a licensed vet or emergency clinic immediately.</p>`;
 }
 
-function getFewShotExample(msg, topic) {
-  const tokens = msg.toLowerCase().split(/\W+/).filter(Boolean);
-  let best = null;
-  let bestScore = 0;
-
-  syntheticChatDataset.forEach(sample => {
-    const tags = sample.tags || [];
-    if (topic && !tags.includes(topic)) return;
-    const overlap = sample.keywords?.reduce((score, kw) => score + (tokens.includes(kw.replace(/\s+/g, '')) ? 1 : textContains(tokens, kw)), 0) || 0;
-    if (overlap > bestScore) {
-      best = sample;
-      bestScore = overlap;
-    }
-  });
-
-  return best || syntheticChatDataset[0];
-}
-
-function textContains(tokens, phrase) {
-  const cleaned = phrase.toLowerCase().split(/\W+/).filter(Boolean);
-  return cleaned.every(part => tokens.includes(part)) ? 1 : 0;
-}
-
 function sanitizeNegativePrompt(negativePrompt) {
   const fallback = chatModelConfig.defaultNegativePrompt;
   const sanitized = (negativePrompt || fallback).replace(/[^a-z0-9 ,.-]/gi, '');
   return sanitized || fallback;
 }
 
-function updateLoraStatus() {
+function updateModelStatus() {
   const statusEl = document.getElementById('loraStatus');
-  if (!statusEl || !loraAdapter) return;
-  const topics = Object.entries(loraAdapter.topicBoosts || {})
-    .sort((a, b) => b[1] - a[1])
-    .map(([topic, weight]) => `${topic}: ${weight.toFixed(2)}`)
-    .join(' · ');
+  if (!statusEl) return;
   const modelName = document.getElementById('chatModelName')?.value?.trim() || chatModelConfig.ollamaModel;
-  statusEl.textContent = `Primary model: ${modelName || 'qwen2.5:3b'} via Ollama (127.0.0.1). Fallback: synthetic LoRA on ${loraAdapter.datasetSize} samples • Topic boosts ${topics}`;
-}
-
-function formatTimestamp(ts) {
-  if (!ts) return 'unknown';
-  const date = new Date(ts);
-  return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+  statusEl.textContent = `Using local model: ${modelName || 'qwen2.5:3b'} via Ollama at 127.0.0.1:11434. Prompt-only; no fine-tuning or synthetic data.`;
 }
 
 // ========================================
