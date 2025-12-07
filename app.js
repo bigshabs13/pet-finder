@@ -460,7 +460,7 @@ async function handleFormSubmit(e) {
 
 async function generateQRForPet(pet) {
   try {
-    const baseUrl = 'http://192.168.10.87:3000';
+    const baseUrl = 'https://the-pet-finder.netlify.app';
     const petUrl = `${baseUrl}/?pet=${pet.id}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${CONFIG.QR_SIZE}x${CONFIG.QR_SIZE}&data=${encodeURIComponent(petUrl)}`;
 
@@ -1588,7 +1588,7 @@ async function submitSighting(petId, name, phone, location, time, lat, lng) {
 }
 
 function showQRModal(petId, petName) {
-  const baseUrl = 'http://192.168.10.87:3000';
+  const baseUrl = 'https://the-pet-finder.netlify.app';
   const petUrl = `${baseUrl}/?pet=${petId}`;
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(petUrl)}`;
   
