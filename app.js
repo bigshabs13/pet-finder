@@ -18,10 +18,16 @@ const state = {
   userPets: [],
   currentFormStep: 1,
   formTotalSteps: 3,
-  map: null,
+  map: null, // legacy reference (use maps)
+  maps: {},
   mapMarkers: {},
+  sightingMarkers: {},
+  locationMarkers: {},
   userLocation: null,
-  currentPetImageIndex: 0
+  currentPetImageIndex: 0,
+  cameraStream: null,
+  scanInterval: null,
+  currentPhotoDataUrl: null
 };
 
 // Pet Images
@@ -69,6 +75,7 @@ function initialize() {
   handleEmailConfirmation();
   checkAuthStatus();
   initPetSlider();
+  initMap('homeMap');
   setupEventListeners();
   initChatbot();
   handlePetLink();
@@ -384,6 +391,7 @@ function handlePhotoUpload(e) {
       `;
       document.querySelector('.upload-placeholder').style.display = 'none';
     }
+    state.currentPhotoDataUrl = event.target.result;
   };
   reader.readAsDataURL(file);
 }
@@ -391,6 +399,7 @@ function handlePhotoUpload(e) {
 function removePhoto() {
   document.getElementById('petPhoto').value = '';
   document.getElementById('photoPreview').innerHTML = '';
+  state.currentPhotoDataUrl = null;
   const placeholder = document.querySelector('.upload-placeholder');
   if (placeholder) placeholder.style.display = 'block';
 }
@@ -424,6 +433,7 @@ async function handleFormSubmit(e) {
       description: document.getElementById('petDescription').value.trim() || null,
       microchip_id: document.getElementById('petMicrochip').value.trim() || null,
       owner_phone: document.getElementById('ownerPhone').value.trim(),
+      photo_url: state.currentPhotoDataUrl || null,
       status: 'safe'
     };
 
@@ -437,6 +447,7 @@ async function handleFormSubmit(e) {
     document.querySelector('.form-steps').style.display = 'none';
 
     loadUserPets();
+    state.currentPhotoDataUrl = null;
   } catch (error) {
     console.error('Error adding pet:', error);
     alert('Failed to add pet: ' + error.message);
@@ -559,32 +570,57 @@ function initScanner() {
 
 async function startCamera() {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    state.cameraStream = stream;
     const placeholder = document.querySelector('.camera-placeholder');
-    if (placeholder) {
-      placeholder.innerHTML = `
-        <video id="camera-video" width="100%" height="300" autoplay></video>
-        <button class="btn btn-secondary" onclick="stopCamera()">Stop Camera</button>
-      `;
-      document.getElementById('camera-video').srcObject = stream;
-      showMessage('Camera started.');
+  if (placeholder) {
+    placeholder.innerHTML = `
+      <video id="camera-video" width="100%" height="300" autoplay></video>
+      <button class="btn btn-secondary" onclick="stopCamera()">Stop Camera</button>
+    `;
+    const video = document.getElementById('camera-video');
+    video.srcObject = stream;
+    video.play();
+
+    if ('BarcodeDetector' in window) {
+      const detector = new BarcodeDetector({ formats: ['qr_code'] });
+      state.scanInterval = setInterval(() => scanForQr(video, detector), 800);
+      showMessage('Camera started. Scanning for QR codes...');
+    } else if (window.jsQR) {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      state.scanInterval = setInterval(() => scanForQrFallback(video, canvas, ctx), 800);
+      showMessage('Camera started. Using fallback QR scanner...');
+    } else {
+      showMessage('Camera started. QR detection not supported; use manual entry.');
     }
-  } catch (error) {
+  }
+} catch (error) {
     console.error('Camera error:', error);
     showMessage('Camera access denied.');
   }
 }
 
-function stopCamera() {
+function stopCamera(skipReset = false) {
+  if (state.scanInterval) {
+    clearInterval(state.scanInterval);
+    state.scanInterval = null;
+  }
   const video = document.getElementById('camera-video');
   if (video?.srcObject) {
     video.srcObject.getTracks().forEach(track => track.stop());
   }
+  if (state.cameraStream) {
+    state.cameraStream.getTracks().forEach(track => track.stop());
+    state.cameraStream = null;
+  }
+
+  if (skipReset) return;
 
   const placeholder = document.querySelector('.camera-placeholder');
   if (placeholder) {
     placeholder.innerHTML = `
-      <div>Camera Icon</div>
+      <div class="camera-icon"><i class="fas fa-camera"></i></div>
       <p>Point your camera at a Pet-Finder QR code</p>
       <button id="start-scanner" class="btn btn-primary">Start Camera</button>
     `;
@@ -592,12 +628,52 @@ function stopCamera() {
   }
 }
 
+async function scanForQr(video, detector) {
+  if (!detector || video.readyState !== HTMLMediaElement.HAVE_ENOUGH_DATA) return;
+  try {
+    const codes = await detector.detect(video);
+    if (codes && codes.length > 0) {
+      const qr = codes[0].rawValue || codes[0].rawData || '';
+      if (qr) {
+        stopCamera();
+        showMessage('QR detected! Loading pet profile...');
+        searchPetByQR(qr);
+      }
+    }
+  } catch (error) {
+    console.error('QR detection error', error);
+  }
+}
+
+function scanForQrFallback(video, canvas, ctx) {
+  if (!window.jsQR || !ctx || video.readyState !== HTMLMediaElement.HAVE_ENOUGH_DATA) return;
+  canvas.width = video.videoWidth || 640;
+  canvas.height = video.videoHeight || 480;
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const code = window.jsQR(imageData.data, imageData.width, imageData.height);
+  if (code && code.data) {
+    stopCamera();
+    showMessage('QR detected! Loading pet profile...');
+    searchPetByQR(code.data);
+  }
+}
+
 async function searchPetByQR(qrId) {
   try {
+    const parsed = (() => {
+      try {
+        const url = new URL(qrId);
+        return url.searchParams.get('pet') || qrId;
+      } catch (_) {
+        return qrId;
+      }
+    })();
+
     const { data: pet, error } = await supabase
       .from('pets')
       .select('*, users(email, full_name)')
-      .eq('id', qrId)
+      .eq('id', parsed)
       .single();
 
     if (error) {
@@ -1048,6 +1124,7 @@ async function handleReportMissing(e) {
   const lostLocation = document.getElementById('lostLocation').value;
   const description = document.getElementById('missingDescription').value;
   const rewardAmount = document.getElementById('rewardAmount').value || null;
+  const rewardDescription = document.getElementById('rewardDescription')?.value || null;
 
   let latitude = null, longitude = null;
 
@@ -1088,6 +1165,7 @@ async function handleReportMissing(e) {
       longitude,
       additional_description: description,
       reward_amount: rewardAmount,
+      reward_description: rewardDescription,
       status: 'active'
     }]);
 
@@ -1173,16 +1251,26 @@ async function markPetAsFound(missingPetId) {
 // MAP AND GPS
 // ========================================
 
-async function initMap() {
-  const mapContainer = document.getElementById('petMap');
+async function initMap(containerId = 'petMap') {
+  const mapContainer = document.getElementById(containerId);
   if (!mapContainer) return;
 
-  state.map = L.map(mapContainer).setView([CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG], CONFIG.MAP_ZOOM);
+  if (state.maps[containerId]) {
+    setTimeout(() => state.maps[containerId].invalidateSize(), 100);
+    await loadMissingPetsOnMap();
+    return;
+  }
 
+  const map = L.map(mapContainer).setView([CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG], CONFIG.MAP_ZOOM);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap',
     maxZoom: 19
-  }).addTo(state.map);
+  }).addTo(map);
+
+  state.maps[containerId] = map;
+  state.map = map; // legacy reference
+  state.mapMarkers[containerId] = {};
+  state.sightingMarkers[containerId] = {};
 
   await getUserLocation();
   await loadMissingPetsOnMap();
@@ -1196,22 +1284,88 @@ function getUserLocation() {
           lat: position.coords.latitude,
           lng: position.coords.longitude
         };
-
-        if (state.map) {
-          L.circleMarker([state.userLocation.lat, state.userLocation.lng], {
-            radius: 8,
-            fillColor: '#0f8f3d',
-            color: '#0f8f3d',
-            weight: 2,
-            fillOpacity: 0.8
-          }).addTo(state.map).bindPopup('Your Location');
-
-          state.map.setView([state.userLocation.lat, state.userLocation.lng], CONFIG.MAP_ZOOM);
-        }
+        renderUserLocation();
+        resolve();
       },
-      () => console.log('GPS unavailable')
+      () => {
+        console.log('GPS unavailable');
+        resolve();
+      }
     );
-    resolve();
+  });
+}
+
+function renderUserLocation() {
+  if (!state.userLocation) return;
+  Object.entries(state.maps).forEach(([id, map]) => {
+    if (state.locationMarkers[id]) map.removeLayer(state.locationMarkers[id]);
+
+    const marker = L.circleMarker([state.userLocation.lat, state.userLocation.lng], {
+      radius: 8,
+      fillColor: '#0f8f3d',
+      color: '#0f8f3d',
+      weight: 2,
+      fillOpacity: 0.8
+    }).addTo(map).bindPopup('Your Location');
+
+    state.locationMarkers[id] = marker;
+    map.setView([state.userLocation.lat, state.userLocation.lng], CONFIG.MAP_ZOOM);
+  });
+}
+
+function getFilterCriteria() {
+  const location = document.getElementById('filterLocation')?.value
+    || document.getElementById('homeFilterLocation')?.value
+    || '';
+  const petType = document.getElementById('filterPetType')?.value
+    || document.getElementById('homeFilterPetType')?.value
+    || '';
+  const radius = parseFloat(document.getElementById('filterDistance')?.value
+    || document.getElementById('homeFilterDistance')?.value
+    || '') || null;
+  const origin = state.userLocation || { lat: CONFIG.DEFAULT_LAT, lng: CONFIG.DEFAULT_LNG };
+  return { location, petType, radius, origin };
+}
+
+function filterMissingPets() {
+  loadMissingPetsOnMap();
+}
+
+function applyMissingFilters(missingPets, filters) {
+  return (missingPets || []).filter(mp => {
+    const locationMatch = !filters.location || (mp.lost_location || '').toLowerCase().includes(filters.location.toLowerCase());
+    const typeMatch = !filters.petType || (mp.pets?.species || '').toLowerCase() === filters.petType.toLowerCase();
+    let distanceMatch = true;
+
+    if (filters.radius && mp.latitude && mp.longitude && filters.origin) {
+      const d = distanceKm(filters.origin.lat, filters.origin.lng, mp.latitude, mp.longitude);
+      distanceMatch = d <= filters.radius;
+    }
+
+    return locationMatch && typeMatch && distanceMatch;
+  });
+}
+
+function distanceKm(lat1, lon1, lat2, lon2) {
+  const toRad = (deg) => deg * Math.PI / 180;
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function clearMapMarkers() {
+  Object.entries(state.mapMarkers).forEach(([id, markers]) => {
+    Object.values(markers || {}).forEach(marker => state.maps[id]?.removeLayer(marker));
+    state.mapMarkers[id] = {};
+  });
+  Object.entries(state.sightingMarkers).forEach(([id, markers]) => {
+    Object.values(markers || {}).forEach(marker => state.maps[id]?.removeLayer(marker));
+    state.sightingMarkers[id] = {};
   });
 }
 
@@ -1224,46 +1378,107 @@ async function loadMissingPetsOnMap() {
 
     if (error) throw error;
 
-    Object.values(state.mapMarkers).forEach(marker => {
-      if (state.map) state.map.removeLayer(marker);
-    });
-    state.mapMarkers = {};
+    const filters = getFilterCriteria();
+    const filteredPets = applyMissingFilters(missingPets, filters);
 
-    missingPets.forEach(mp => {
-      if (mp.latitude && mp.longitude && state.map) {
+    clearMapMarkers();
+
+    filteredPets.forEach(mp => {
+      if (mp.latitude && mp.longitude) {
         const daysLost = Math.floor((new Date() - new Date(mp.created_at)) / (1000 * 60 * 60 * 24));
         const color = daysLost > 7 ? '#dc2626' : '#f97316';
 
-        const marker = L.circleMarker([mp.latitude, mp.longitude], {
-          radius: 12,
-          fillColor: color,
-          color: color,
-          weight: 2,
-          fillOpacity: 0.8
-        }).addTo(state.map);
+        Object.entries(state.maps).forEach(([id, map]) => {
+          const marker = L.circleMarker([mp.latitude, mp.longitude], {
+            radius: 12,
+            fillColor: color,
+            color: color,
+            weight: 2,
+            fillOpacity: 0.8
+          }).addTo(map);
 
-        const popup = `
-          <div class="pet-popup">
-            <h3>${mp.pets.name}</h3>
-            <p><strong>${mp.pets.species.toUpperCase()}</strong></p>
-            <p>MISSING - Last seen: ${mp.lost_location}</p>
-            <p>Date: ${mp.lost_date}</p>
-            <p>Lost for: ${daysLost} days</p>
-        <button class="contact-btn" onclick="reportSighting('${mp.pet_id}')">Report Sighting</button>
-        <button class="contact-btn" onclick="contactWhatsApp('${mp.pets.owner_phone}')">WhatsApp</button>
-        <button class="contact-btn" onclick="callOwner('${mp.pets.owner_phone}')">Call Owner</button>
-          </div>
-        `;
+          const popup = `
+            <div class="pet-popup">
+              <h3>${mp.pets.name}</h3>
+              <p><strong>${(mp.pets.species || '').toUpperCase()}</strong></p>
+              <p>MISSING - Last seen: ${mp.lost_location}</p>
+              <p>Date: ${mp.lost_date}</p>
+              <p>Lost for: ${daysLost} days</p>
+              ${mp.reward_amount ? `<p><strong>Reward:</strong> ${mp.reward_amount} LBP${mp.reward_description ? ` - ${mp.reward_description}` : ''}</p>` : ''}
+              <button class="contact-btn" onclick="reportSighting('${mp.pet_id}')">Report Sighting</button>
+              <button class="contact-btn" onclick="contactWhatsApp('${mp.pets.owner_phone}')">WhatsApp</button>
+              <button class="contact-btn" onclick="callOwner('${mp.pets.owner_phone}')">Call Owner</button>
+            </div>
+          `;
 
-        marker.bindPopup(popup);
-        state.mapMarkers[mp.id] = marker;
+          marker.bindPopup(popup);
+          if (!state.mapMarkers[id]) state.mapMarkers[id] = {};
+          state.mapMarkers[id][mp.id] = marker;
+        });
       }
     });
 
-    displayMissingPetsList(missingPets);
+    await renderSightingsOnMap(filteredPets);
+    displayMissingPetsList(filteredPets);
   } catch (error) {
     console.error('Map error:', error);
   }
+}
+
+async function renderSightingsOnMap(filteredMissingPets) {
+  const petIds = (filteredMissingPets || []).map(mp => mp.pet_id).filter(Boolean);
+  if (petIds.length === 0) {
+    clearSightingsOnly();
+    return;
+  }
+
+  const { data: sightings, error } = await supabase
+    .from('pet_sightings')
+    .select('*, pets(id, name)')
+    .in('pet_id', petIds)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (error) {
+    console.error('Sightings load failed', error);
+    return;
+  }
+
+  clearSightingsOnly();
+
+  sightings.forEach(s => {
+    if (!s.latitude || !s.longitude) return;
+    Object.entries(state.maps).forEach(([id, map]) => {
+      const marker = L.circleMarker([s.latitude, s.longitude], {
+        radius: 8,
+        fillColor: '#10b981',
+        color: '#059669',
+        weight: 2,
+        fillOpacity: 0.8
+      }).addTo(map);
+
+      const popup = `
+        <div class="pet-popup">
+          <h3>Sighting: ${s.pets?.name || 'Unknown'}</h3>
+          <p>${s.sighting_location || 'Location not provided'}</p>
+          <p>${s.sighting_date} ${s.sighting_time || ''}</p>
+          ${s.reporter_name ? `<p>By: ${s.reporter_name}</p>` : ''}
+          ${s.notes ? `<p>Notes: ${s.notes}</p>` : ''}
+        </div>
+      `;
+
+      marker.bindPopup(popup);
+      if (!state.sightingMarkers[id]) state.sightingMarkers[id] = {};
+      state.sightingMarkers[id][s.id] = marker;
+    });
+  });
+}
+
+function clearSightingsOnly() {
+  Object.entries(state.sightingMarkers).forEach(([id, markers]) => {
+    Object.values(markers || {}).forEach(marker => state.maps[id]?.removeLayer(marker));
+    state.sightingMarkers[id] = {};
+  });
 }
 
 function guessCoordinatesFromLocation(text) {
@@ -1302,7 +1517,7 @@ function displayMissingPetsList(missingPets) {
         <p>${mp.pets.species}: ${mp.pets.description || 'No description'}</p>
         <p>Location: ${mp.lost_location}</p>
         <p>Lost: ${mp.lost_date} (${daysLost} days ago)</p>
-        ${mp.reward_amount ? `<p>Reward: ${mp.reward_amount} LBP</p>` : ''}
+        ${mp.reward_amount ? `<p>Reward: ${mp.reward_amount} LBP${mp.reward_description ? ` - ${mp.reward_description}` : ''}</p>` : ''}
         <button class="btn btn-primary" onclick="reportSighting('${mp.pet_id}')" style="width: 100%; margin-top: 12px;">Report Sighting</button>
       </div>
     `;
@@ -1423,6 +1638,15 @@ function contactWhatsApp(phone) {
   window.open(url, '_blank');
 }
 
+function callOwner(phone) {
+  if (!phone) {
+    showMessage('Owner phone number not available');
+    return;
+  }
+  const digits = ('' + phone).replace(/\D/g, '');
+  window.location.href = `tel:${digits}`;
+}
+
 // ========================================
 // DASHBOARD
 // ========================================
@@ -1439,6 +1663,7 @@ function initDashboard() {
     });
   });
 
+  initQuickActions();
   showSection('feed-section');
   initAddPetForm();
   initReportMissing();
@@ -1491,7 +1716,7 @@ async function loadFeed() {
             <p><strong>Color:</strong> ${mp.pets.color || 'Not specified'}</p>
             <p><strong>Last Seen:</strong> ${mp.lost_location}</p>
             <p><strong>Date:</strong> ${mp.lost_date} (${daysLost} days ago)</p>
-            ${mp.reward_amount ? `<p><strong style="color: #dc2626;">Reward:</strong> ${mp.reward_amount} LBP</p>` : ''}
+            ${mp.reward_amount ? `<p><strong style="color: #dc2626;">Reward:</strong> ${mp.reward_amount} LBP${mp.reward_description ? ` - ${mp.reward_description}` : ''}</p>` : ''}
             ${mp.additional_description ? `<p><strong>Details:</strong> ${mp.additional_description}</p>` : ''}
           </div>
           <div class="feed-card-footer">
