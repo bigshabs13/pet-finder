@@ -2,11 +2,6 @@
 
 A modern web application that helps pet owners register pets, generate unique QR codes for collars/tags, and reunite with their pets faster when they go missing. When someone scans the QR code, they instantly see the pet's profile and can contact the owner via WhatsApp or report a sighting.
 
-
-
-
-
-
 ## Features
 
 **Core Functionality**
@@ -26,6 +21,14 @@ A modern web application that helps pet owners register pets, generate unique QR
 - Real-time sighting notifications
 - Prevent self-reporting of own pets
 - Download and print QR codes for pet tags
+
+## Latest Changes
+
+- Home and dashboard maps share filters (location, type, radius) and render missing pets (red/orange), sightings (green), plus user-location centering when allowed.
+- Missing pet reports and status toggles now refresh feed + map immediately; reward amount and description are saved and shown in cards/popups.
+- QR scanner supports `BarcodeDetector` with jsQR fallback and parses full QR URLs (not just raw IDs).
+- Dashboard overview stats and pet preview populate correctly; quick actions are wired.
+- Call/WhatsApp buttons use a defined `callOwner` helper to avoid broken actions.
 
 ## Tech Stack
 
@@ -205,6 +208,12 @@ Can be deployed to any static file host. Update IP addresses in QR code generati
 - Test across browsers and devices
 - Update README if adding new features
 - Keep UI responsive and accessible
+
+## Sprint Plan (3 people)
+
+- Frontend/UI: set the QR `baseUrl` in `app.js` to the live domain before deploy, polish map/filter UX (loading/error states), and surface pet photos in cards/feed once storage is wired.
+- Backend/Infra: add the live domain to Supabase allowed origins/CORS; create a `pet-photos` storage bucket + upload path; validate reward fields and missing reports include coordinates.
+- QA/Release: run end-to-end smoke on the hosted URL (add pet, mark missing, Apply filters, map pins, QR scan on Chrome/Safari), verify QR fallback, and document deploy + rollback steps.
 
 ## License
 
