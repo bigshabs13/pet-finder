@@ -531,13 +531,19 @@ function updateStats() {
   const active = state.userPets.filter(p => p.status !== 'lost').length;
   const lost = state.userPets.filter(p => p.status === 'lost').length;
 
-  document.getElementById('total-pets').textContent = total;
-  document.getElementById('active-pets').textContent = active;
-  document.getElementById('lost-pets').textContent = lost;
+  const totalEl = document.getElementById('totalPets');
+  const activeEl = document.getElementById('activePets');
+  const lostEl = document.getElementById('lostPets');
+  const qrEl = document.getElementById('totalQRs');
+
+  if (totalEl) totalEl.textContent = total;
+  if (activeEl) activeEl.textContent = active;
+  if (lostEl) lostEl.textContent = lost;
+  if (qrEl) qrEl.textContent = total; // assumes one QR per pet
 }
 
 function renderPetsPreview() {
-  const container = document.getElementById('pets-preview-grid');
+  const container = document.getElementById('overviewPetsList');
   if (!container) return;
 
   if (state.userPets.length === 0) {
@@ -1177,6 +1183,7 @@ async function handleReportMissing(e) {
     document.getElementById('reportMissingForm').reset();
     loadActiveMissingPets();
     loadMissingPetsOnMap();
+    loadFeed();
     setTimeout(() => showSection('map-section'), 1500);
   } catch (error) {
     console.error('Error:', error);
@@ -1854,6 +1861,8 @@ async function toggleMissingStatus(petId, currentStatus) {
     await supabase.from('pets').update({ status: newStatus }).eq('id', petId);
     loadUserPets();
     renderMyPets();
+    loadMissingPetsOnMap();
+    loadFeed();
   } catch (error) {
     console.error('Error toggling status:', error);
     alert('Error: ' + error.message);
