@@ -5,11 +5,12 @@
 // Configuration
 const CONFIG = {
   SUPABASE_URL: 'https://idvunxqfgengfnbrsqla.supabase.co',
-  SUPABASE_KEY: 'sb_publishable_QOik2xXg32RTTgRasLNLcA_GLMaw54Y',
+  SUPABASE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlkdnVueHFmZ2VuZ2ZuYnJzcWxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMzODY2NzUsImV4cCI6MjA3ODk2MjY3NX0.FsZfae7d6vYboy6uWKjYw8wkDvA48hypMbJxHaOeOXI',
   DEFAULT_LAT: 33.8547,
   DEFAULT_LNG: 35.4747,
   MAP_ZOOM: 13,
-  QR_SIZE: 300
+  QR_SIZE: 300,
+  BASE_URL: '' // optional override for QR links; fallback uses current origin
 };
 
 // Global State
@@ -1588,7 +1589,7 @@ async function submitSighting(petId, name, phone, location, time, lat, lng) {
 }
 
 function showQRModal(petId, petName) {
-  const baseUrl = 'https://the-pet-finder.netlify.app';
+  const baseUrl = CONFIG.BASE_URL || (window.location && window.location.origin) || 'https://the-pet-finder.netlify.app';
   const petUrl = `${baseUrl}/?pet=${petId}`;
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(petUrl)}`;
   
@@ -1991,8 +1992,17 @@ async function displayQRPetProfile(petId) {
       .eq('id', petId)
       .single();
 
-    if (error || !pet) {
-      alert('Pet not found');
+    const { data: missing, error: missingError } = await supabase
+      .from('missing_pets')
+      .select('*')
+      .eq('pet_id', petId)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if ((error && error.code !== 'PGRST116') || !pet) {
+      alert('Pet not found. Make sure this QR points to the same Supabase project where the pet is saved and that anon read access is allowed.');
       return;
     }
 
@@ -2019,6 +2029,16 @@ async function displayQRPetProfile(petId) {
                 Status: ${pet.status === 'lost' ? 'MISSING' : 'SAFE'}
               </p>
             </div>
+
+            ${missing ? `
+              <div style="background: #fff7ed; padding: 16px; border-radius: 8px; border-left: 4px solid #f97316; text-align: left; margin-bottom: 20px;">
+                <p style="margin: 6px 0; color: #b45309; font-weight: 700;">Active Missing Report</p>
+                ${missing.lost_location ? `<p style="margin: 6px 0;"><strong>Last seen:</strong> ${missing.lost_location}</p>` : ''}
+                ${missing.lost_date ? `<p style="margin: 6px 0;"><strong>Date:</strong> ${missing.lost_date}${missing.lost_time ? ` ${missing.lost_time}` : ''}</p>` : ''}
+                ${missing.additional_description ? `<p style="margin: 6px 0;"><strong>Details:</strong> ${missing.additional_description}</p>` : ''}
+                ${missing.reward_amount ? `<p style="margin: 6px 0;"><strong>Reward:</strong> ${missing.reward_amount} LBP${missing.reward_description ? ` - ${missing.reward_description}` : ''}</p>` : ''}
+              </div>
+            ` : ''}
             
             <div style="background: #e8f5e9; padding: 20px; border-radius: 8px; border-left: 4px solid #0f8f3d; margin-bottom: 20px;">
               <h3 style="margin: 0 0 12px 0; color: #0f8f3d;">Found this pet?</h3>
